@@ -29,7 +29,7 @@ DYLIB_SRC_NAME := $(DYLIB_PREFIX)$(DYLIB_BASE_NAME)$(DYLIB_EXT)
 DYLIB_TARGET_NAME := $(DYLIB_BASE_NAME)$(DYLIB_EXT)
 
 MOD_TOOL := ./RecompModTool
-SYMS_PATH := Zelda64RecompSyms/mm.us.rev1.syms.toml
+SYMS_PATH := deps/Zelda64RecompSyms/mm.us.rev1.syms.toml
 
 # Main mod targets
 MAIN_TARGET  := $(BUILD_DIR)/main/mod.elf
@@ -46,7 +46,7 @@ CFLAGS   := -target mips -mips2 -mabi=32 -O2 -G0 -mno-abicalls -mno-odd-spreg -m
             -Wall -Wextra -Wno-incompatible-library-redeclaration -Wno-unused-parameter -Wno-unknown-pragmas -Wno-unused-variable \
             -Wno-missing-braces -Wno-unsupported-floating-point-opt -Werror=section
 CPPFLAGS := -nostdinc -D_LANGUAGE_C -DMIPS -DF3DEX_GBI_2 -DF3DEX_GBI_PL -DGBI_DOWHILE -I include -I include/dummy_headers \
-            -I mm-decomp/include -I mm-decomp/src -I mm-decomp/extracted/n64-us -I mm-decomp/include/libc
+            -I deps/mm-decomp/include -I deps/mm-decomp/src -I deps/mm-decomp/extracted/n64-us -I deps/mm-decomp/include/libc
 LDFLAGS  := -nostdlib -T $(LDSCRIPT) -Map $(BUILD_DIR)/mod.map --unresolved-symbols=ignore-all --emit-relocs -e 0 --no-nmagic
 
 # Main mod files
@@ -94,20 +94,17 @@ $(TEST_TARGET): $(TEST_C_OBJS) $(LDSCRIPT) | $(BUILD_DIR)/test
 $(TEST_NRM_TARGET): $(TEST_TARGET) | $(BUILD_DIR)/test
 	$(MOD_TOOL) network-play-test/test.toml $(BUILD_DIR)/test
 
+$(BUILD_DIR) $(BUILD_DIR)/main $(BUILD_DIR)/main/network-play $(BUILD_DIR)/test $(BUILD_DIR)/test/network-play-test:
 ifeq ($(OS),Windows_NT)
-    # For Windows
-    $(BUILD_DIR) $(BUILD_DIR)/main $(BUILD_DIR)/main/network-play $(BUILD_DIR)/test $(BUILD_DIR)/test/network-play-test:
-	    mkdir $(subst /,\,$@)
+	mkdir $(subst /,\,$@)
 else
-    # For macOS and Linux
-    $(BUILD_DIR) $(BUILD_DIR)/main $(BUILD_DIR)/main/network-play $(BUILD_DIR)/test $(BUILD_DIR)/test/network-play-test:
-	    mkdir -p $@
+	mkdir -p $@
 endif
 
-$(MAIN_C_OBJS): $(BUILD_DIR)/main/%.o : %.c | $(BUILD_DIR)/main $(BUILD_DIR)/main/network-play
+$(MAIN_C_OBJS): $(BUILD_DIR)/main/%.o : %.c | $(BUILD_DIR) $(BUILD_DIR)/main $(BUILD_DIR)/main/network-play
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -MMD -MF $(@:.o=.d) -c -o $@
 
-$(TEST_C_OBJS): $(BUILD_DIR)/test/%.o : %.c | $(BUILD_DIR)/test $(BUILD_DIR)/test/network-play-test
+$(TEST_C_OBJS): $(BUILD_DIR)/test/%.o : %.c | $(BUILD_DIR) $(BUILD_DIR)/test $(BUILD_DIR)/test/network-play-test
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -MMD -MF $(@:.o=.d) -c -o $@
 
 clean:

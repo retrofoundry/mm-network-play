@@ -54,10 +54,10 @@ elf_path = "build/main/mod.elf"
 mod_filename = "mm_network_play"
 
 # Reference symbol files.
-func_reference_syms_file = "Zelda64RecompSyms/mm.us.rev1.syms.toml"
+func_reference_syms_file = "deps/Zelda64RecompSyms/mm.us.rev1.syms.toml"
 data_reference_syms_files = [
-    "Zelda64RecompSyms/mm.us.rev1.datasyms.toml",
-    "Zelda64RecompSyms/mm.us.rev1.datasyms_static.toml",
+    "deps/Zelda64RecompSyms/mm.us.rev1.datasyms.toml",
+    "deps/Zelda64RecompSyms/mm.us.rev1.datasyms_static.toml",
 ]
 
 # Additional files to include in the mod.

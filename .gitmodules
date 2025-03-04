@@ -1,12 +1,12 @@
-[submodule "Zelda64RecompSyms"]
-	path = Zelda64RecompSyms
-	url = https://github.com/Zelda64Recomp/Zelda64RecompSyms
-[submodule "mm-decomp"]
-	path = mm-decomp
-	url = https://github.com/zeldaret/mm
-[submodule "gamecore"]
-	path = gamecore
+[submodule "deps/gamecore"]
+	path = deps/gamecore
 	url = https://github.com/retrofoundry/gamecore.git
-[submodule "n64-recomp"]
-	path = n64-recomp
+[submodule "deps/n64-recomp"]
+	path = deps/n64-recomp
 	url = https://github.com/retrofoundry/n64-recomp-rs.git
+[submodule "deps/Zelda64RecompSyms"]
+	path = deps/Zelda64RecompSyms
+	url = https://github.com/Zelda64Recomp/Zelda64RecompSyms
+[submodule "deps/mm-decomp"]
+	path = deps/mm-decomp
+	url = https://github.com/zeldaret/mm
