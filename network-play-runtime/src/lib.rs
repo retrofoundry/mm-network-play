@@ -5,7 +5,7 @@ use env_logger::Builder;
 use n64_recomp::RecompContext;
 use network::get_network_play;
 use std::panic;
-use utils::{execute_safely, with_network_play, with_network_play_mut};
+use utils::{execute_safely, with_network_play_mut};
 
 // C - API
 
@@ -70,49 +70,5 @@ pub extern "C" fn NetworkPlaySetPlayerId(_rdram: *mut u8, ctx: *mut RecompContex
             },
             (),
         );
-    });
-}
-
-#[no_mangle]
-pub extern "C" fn NetworkPlaySetPlayerCanSpin(_rdram: *mut u8, ctx: *mut RecompContext) {
-    execute_safely(ctx, "NetworkPlaySetPlayerCanSpin", |ctx| {
-        let can_spin = ctx.a0() != 0;
-
-        let result = with_network_play_mut(
-            |module| match module.set_player_can_spin(can_spin) {
-                Ok(_) => {
-                    log::info!("Player spin ability set to {}", can_spin);
-                    1i32
-                }
-                Err(e) => {
-                    log::error!("Failed to set spin ability: {}", e);
-                    0i32
-                }
-            },
-            0i32,
-        );
-
-        ctx.set_return(result);
-    });
-}
-
-#[no_mangle]
-pub extern "C" fn NetworkPlayCanPlayerSpin(_rdram: *mut u8, ctx: *mut RecompContext) {
-    execute_safely(ctx, "NetworkPlayCanPlayerSpin", |ctx| {
-        let player_id = ctx.a0() as u32;
-
-        let result = with_network_play(
-            |module| {
-                let can_spin = module.can_player_spin(player_id);
-                if can_spin {
-                    1i32
-                } else {
-                    0i32
-                }
-            },
-            0i32,
-        );
-
-        ctx.set_return(result);
     });
 }
