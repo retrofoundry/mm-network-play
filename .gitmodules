@@ -4,3 +4,9 @@
 [submodule "mm-decomp"]
 	path = mm-decomp
 	url = https://github.com/zeldaret/mm
+[submodule "gamecore"]
+	path = gamecore
+	url = https://github.com/retrofoundry/gamecore.git
+[submodule "n64-recomp"]
+	path = n64-recomp
+	url = https://github.com/retrofoundry/n64-recomp-rs.git

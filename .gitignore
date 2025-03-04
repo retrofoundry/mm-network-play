@@ -11,3 +11,6 @@
 patches.map
 build/
 .vscode/settings.json
+.DS_Store
+RecompModTool
+target/
