@@ -121,6 +121,6 @@ jobs:
         with:
           name: ${{ matrix.artifact-name }}
           path: |
-            build/mm_network_play.nrm
+            build/main/mm_network_play.nrm
             build/network_play_runtime${{ matrix.lib-extension }}
           if-no-files-found: error
