@@ -1,0 +1,126 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [main, master]
+    tags:
+      - "v*"
+  pull_request:
+    branches: [main, master]
+
+env:
+  N64RECOMP_COMMIT: 198de1b5cf6e58415948588584750c51562d58dd
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: blaze/ubuntu-latest
+            lib-prefix: lib
+            lib-extension: .so
+            artifact-name: linux-arm-build
+            architecture: arm64
+          - os: blaze/ubuntu-latest-amd64
+            lib-prefix: lib
+            lib-extension: .so
+            artifact-name: linux-amd64-build
+            architecture: amd64
+          - os: windows-latest
+            lib-prefix: ""
+            lib-extension: .dll
+            artifact-name: windows-build
+            architecture: amd64
+          - os: blaze/macos-latest
+            lib-prefix: lib
+            lib-extension: .dylib
+            artifact-name: macos-arm-build
+            architecture: arm64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: "recursive"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-mips-linux-gnu llvm clang-15 ninja-build
+
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        uses: pkgxdev/setup@v3
+        with:
+          +: llvm.org@19
+            ninja
+
+      - name: Install Windows Dependencies
+        if: runner.os == 'Windows'
+        run: |
+          choco install ninja
+
+      - name: Configure Developer Command Prompt
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build RecompModTool
+        if: runner.os != 'Windows'
+        run: |
+          git clone https://github.com/Mr-Wiseguy/N64Recomp.git --recurse-submodules N64RecompSource
+          cd N64RecompSource
+          git checkout ${{ inputs.N64RECOMP_COMMIT }}
+          git submodule update --init --recursive
+
+          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_MAKE_PROGRAM=ninja -G Ninja -S . -B cmake-build
+          cmake --build cmake-build --config Release --target RecompModTool
+
+          cp cmake-build/RecompModTool ..
+
+      - name: Build RecompModTool
+        if: runner.os == 'Windows'
+        run: |
+          git clone https://github.com/Mr-Wiseguy/N64Recomp.git --recurse-submodules N64RecompSource
+          cd N64RecompSource
+          git checkout ${{ inputs.N64RECOMP_COMMIT }}
+          git submodule update --init --recursive
+
+          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_MAKE_PROGRAM=ninja -G Ninja -S . -B cmake-build
+          cmake --build cmake-build --config Release --target RecompModTool
+
+          cp cmake-build/RecompModTool.exe ..
+
+      - name: Build project
+        if: runner.os == 'Linux'
+        run: make
+
+      - name: Build project
+        if: runner.os == 'Windows'
+        run: make SKIP_RUST=1
+        shell: pwsh
+
+      - name: Build project
+        if: runner.os == 'macOS'
+        run: CC=$(pkgx +llvm.org which clang) LD=$(pkgx +llvm.org which ld.lld) pkgx make
+
+      - name: Build DLL (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cd network-play-runtime
+          cargo build --release --target x86_64-pc-windows-msvc
+          Copy-Item "target/x86_64-pc-windows-msvc/release/network_play_runtime.dll" "../build/"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: |
+            build/mm_network_play.nrm
+            build/network_play_runtime${{ matrix.lib-extension }}
+          if-no-files-found: error

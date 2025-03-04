@@ -2,6 +2,7 @@ BUILD_DIR := build
 MOD_NAME := mm_network_play-1.0.0
 DYLIB_DIR := network-play-runtime
 DYLIB_BASE_NAME := network_play_runtime
+SKIP_RUST ?= 0
 
 # Allow the user to specify the compiler and linker on macOS
 # as Apple Clang does not support MIPS architecture
@@ -59,11 +60,13 @@ $(NRM_TARGET): $(TARGET) | $(BUILD_DIR)
 
 # Step 3: Build the Rust dylib
 $(DYLIB_TARGET): | $(BUILD_DIR)
-	cd $(DYLIB_DIR) && cargo build
+ifeq ($(SKIP_RUST),0)
+	cd $(DYLIB_DIR) && cargo build --release
 ifeq ($(OS),Windows_NT)
-	copy "$(DYLIB_DIR)\target\debug\$(DYLIB_SRC_NAME)" "$(BUILD_DIR)\$(DYLIB_TARGET_NAME)"
+	copy "$(DYLIB_DIR)\target\release\$(DYLIB_SRC_NAME)" "$(BUILD_DIR)\$(DYLIB_TARGET_NAME)"
 else
-	cp $(DYLIB_DIR)/target/debug/$(DYLIB_SRC_NAME) $(BUILD_DIR)/$(DYLIB_TARGET_NAME)
+	cp $(DYLIB_DIR)/target/release/$(DYLIB_SRC_NAME) $(BUILD_DIR)/$(DYLIB_TARGET_NAME)
+endif
 endif
 
 ifeq ($(OS),Windows_NT)
