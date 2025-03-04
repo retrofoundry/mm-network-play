@@ -6,6 +6,8 @@ use std::collections::HashMap;
 use std::panic;
 use std::sync::{Arc, Mutex, OnceLock};
 
+use crate::utils::with_network_play_mut;
+
 // Global singleton instance of the NetworkPlay module
 pub static NETWORK_PLAY: OnceLock<Arc<Mutex<NetworkPlayModule>>> = OnceLock::new();
 
@@ -118,57 +120,48 @@ fn process_network_message(message: &str) -> Result<()> {
         return Ok(());
     }
 
-    // Try to parse as JSON first
-    let json_result = serde_json::from_str::<serde_json::Value>(message);
+    // Parse JSON
+    let json_value = match serde_json::from_str::<serde_json::Value>(message) {
+        Ok(value) => value,
+        Err(e) => {
+            log::debug!("Received non-JSON message: {} (Error: {})", message, e);
+            return Ok(());
+        }
+    };
 
-    if let Err(e) = json_result {
-        // Not valid JSON - could be a server welcome message
-        log::debug!("Received non-JSON message: {} (Error: {})", message, e);
-        return Ok(()); // Return without error - just ignore non-JSON messages
-    }
+    // Parse NetworkMessage
+    let network_msg = match serde_json::from_value::<NetworkMessage>(json_value) {
+        Ok(msg) => msg,
+        Err(e) => {
+            log::debug!(
+                "Message is not in NetworkMessage format: {} (Error: {})",
+                message,
+                e
+            );
+            return Ok(());
+        }
+    };
 
-    let json_value = json_result.unwrap();
-
-    // Now try to parse as NetworkMessage
-    let network_msg_result = serde_json::from_value::<NetworkMessage>(json_value.clone());
-
-    if let Err(e) = network_msg_result {
-        // It's valid JSON but not our expected format
-        log::debug!(
-            "Message is not in NetworkMessage format: {} (Error: {})",
-            message,
-            e
-        );
-        return Ok(()); // Still return Ok - we just ignore messages we don't understand
-    }
-
-    let network_msg = network_msg_result.unwrap();
     log::debug!("Received valid network message: {:?}", network_msg);
 
     // Process message based on event type
     if network_msg.event_type == "spin_ability" {
         if let Some(can_spin) = network_msg.data.get("can_spin").and_then(|v| v.as_bool()) {
-            // Update our state using the global singleton
-            if let Some(network_play) = NETWORK_PLAY.get() {
-                match network_play.lock() {
-                    Ok(mut module) => {
-                        module
-                            .player_spin_ability
-                            .insert(network_msg.player_id, can_spin);
-                        log::debug!(
-                            "Player {} spin ability set to {}",
-                            network_msg.player_id,
-                            can_spin
-                        );
-                    }
-                    Err(e) => {
-                        log::error!("Failed to lock network module in message handler: {}", e);
-                    }
-                }
-            } else {
-                log::error!("Network play module not initialized");
-            }
+            with_network_play_mut(
+                |module| {
+                    module
+                        .player_spin_ability
+                        .insert(network_msg.player_id, can_spin);
+                    log::debug!(
+                        "Player {} spin ability set to {}",
+                        network_msg.player_id,
+                        can_spin
+                    );
+                },
+                (),
+            );
         }
     }
+
     Ok(())
 }
