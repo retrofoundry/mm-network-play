@@ -1,5 +1,6 @@
 BUILD_DIR := build
-MOD_NAME := mm_network_play-1.0.0
+MAIN_MOD_NAME := mm_network_play-1.0.0
+TEST_MOD_NAME := network_play_test-1.0.0
 DYLIB_DIR := network-play-runtime
 DYLIB_BASE_NAME := network_play_runtime
 SKIP_RUST ?= 0
@@ -28,35 +29,51 @@ DYLIB_SRC_NAME := $(DYLIB_PREFIX)$(DYLIB_BASE_NAME)$(DYLIB_EXT)
 DYLIB_TARGET_NAME := $(DYLIB_BASE_NAME)$(DYLIB_EXT)
 
 MOD_TOOL := ./RecompModTool
-SYMS_PATH := Zelda64RecompSyms/mm.us.rev1.syms.toml
-TARGET  := $(BUILD_DIR)/mod.elf
-NRM_TARGET := $(BUILD_DIR)/$(MOD_NAME).nrm
+SYMS_PATH := deps/Zelda64RecompSyms/mm.us.rev1.syms.toml
+
+# Main mod targets
+MAIN_TARGET  := $(BUILD_DIR)/main/mod.elf
+MAIN_NRM_TARGET := $(BUILD_DIR)/$(MAIN_MOD_NAME).nrm
 DYLIB_TARGET := $(BUILD_DIR)/$(DYLIB_TARGET_NAME)
+
+# Test mod targets
+TEST_TARGET  := $(BUILD_DIR)/test/mod.elf
+TEST_NRM_TARGET := $(BUILD_DIR)/$(TEST_MOD_NAME).nrm
 
 LDSCRIPT := mod.ld
 CFLAGS   := -target mips -mips2 -mabi=32 -O2 -G0 -mno-abicalls -mno-odd-spreg -mno-check-zero-division \
-			-fomit-frame-pointer -ffast-math -fno-unsafe-math-optimizations -fno-builtin-memset \
-			-Wall -Wextra -Wno-incompatible-library-redeclaration -Wno-unused-parameter -Wno-unknown-pragmas -Wno-unused-variable \
-			-Wno-missing-braces -Wno-unsupported-floating-point-opt -Werror=section
+            -fomit-frame-pointer -ffast-math -fno-unsafe-math-optimizations -fno-builtin-memset \
+            -Wall -Wextra -Wno-incompatible-library-redeclaration -Wno-unused-parameter -Wno-unknown-pragmas -Wno-unused-variable \
+            -Wno-missing-braces -Wno-unsupported-floating-point-opt -Werror=section
 CPPFLAGS := -nostdinc -D_LANGUAGE_C -DMIPS -DF3DEX_GBI_2 -DF3DEX_GBI_PL -DGBI_DOWHILE -I include -I include/dummy_headers \
-			-I mm-decomp/include -I mm-decomp/src -I mm-decomp/extracted/n64-us -I mm-decomp/include/libc
+            -I deps/mm-decomp/include -I deps/mm-decomp/src -I deps/mm-decomp/extracted/n64-us -I deps/mm-decomp/include/libc
 LDFLAGS  := -nostdlib -T $(LDSCRIPT) -Map $(BUILD_DIR)/mod.map --unresolved-symbols=ignore-all --emit-relocs -e 0 --no-nmagic
 
-C_SRCS := $(wildcard src/*.c)
-C_OBJS := $(addprefix $(BUILD_DIR)/, $(C_SRCS:.c=.o))
-C_DEPS := $(addprefix $(BUILD_DIR)/, $(C_SRCS:.c=.d))
+# Main mod files
+MAIN_C_SRCS := $(wildcard network-play/*.c)
+MAIN_C_OBJS := $(addprefix $(BUILD_DIR)/main/, $(MAIN_C_SRCS:.c=.o))
+MAIN_C_DEPS := $(addprefix $(BUILD_DIR)/main/, $(MAIN_C_SRCS:.c=.d))
 
-.PHONY: all clean build-dylib
+# Test mod files
+TEST_C_SRCS := $(wildcard network-play-test/*.c)
+TEST_C_OBJS := $(addprefix $(BUILD_DIR)/test/, $(TEST_C_SRCS:.c=.o))
+TEST_C_DEPS := $(addprefix $(BUILD_DIR)/test/, $(TEST_C_SRCS:.c=.d))
 
-all: $(NRM_TARGET) $(DYLIB_TARGET)
+.PHONY: all clean main test build-dylib
 
-# Step 1: Build the .elf file
-$(TARGET): $(C_OBJS) $(LDSCRIPT) | $(BUILD_DIR)
-	$(LD) $(C_OBJS) $(LDFLAGS) -o $@
+all: main test
 
-# Step 2: Run RecompModTool to generate .nrm file
-$(NRM_TARGET): $(TARGET) | $(BUILD_DIR)
-	$(MOD_TOOL) mod.toml $(BUILD_DIR)
+main: $(MAIN_NRM_TARGET) $(DYLIB_TARGET)
+
+test: $(TEST_NRM_TARGET)
+
+# Step 1: Build the main .elf file
+$(MAIN_TARGET): $(MAIN_C_OBJS) $(LDSCRIPT) | $(BUILD_DIR)/main
+	$(LD) $(MAIN_C_OBJS) $(LDFLAGS) -o $@
+
+# Step 2: Run RecompModTool to generate main .nrm file
+$(MAIN_NRM_TARGET): $(MAIN_TARGET) | $(BUILD_DIR)
+	$(MOD_TOOL) mod.toml $(BUILD_DIR)/main
 
 # Step 3: Build the Rust dylib
 $(DYLIB_TARGET): | $(BUILD_DIR)
@@ -69,21 +86,30 @@ else
 endif
 endif
 
+# Step 4: Build the test .elf file
+$(TEST_TARGET): $(TEST_C_OBJS) $(LDSCRIPT) | $(BUILD_DIR)/test
+	$(LD) $(TEST_C_OBJS) $(LDFLAGS) -o $@
+
+# Step 5: Run RecompModTool to generate test .nrm file
+$(TEST_NRM_TARGET): $(TEST_TARGET) | $(BUILD_DIR)/test
+	$(MOD_TOOL) network-play-test/test.toml $(BUILD_DIR)/test
+
+$(BUILD_DIR) $(BUILD_DIR)/main $(BUILD_DIR)/main/network-play $(BUILD_DIR)/test $(BUILD_DIR)/test/network-play-test:
 ifeq ($(OS),Windows_NT)
-    # For Windows
-    $(BUILD_DIR) $(BUILD_DIR)/src:
-	    mkdir $(subst /,\,$@)
+	mkdir $(subst /,\,$@)
 else
-    # For macOS and Linux
-    $(BUILD_DIR) $(BUILD_DIR)/src:
-	    mkdir -p $@
+	mkdir -p $@
 endif
 
-$(C_OBJS): $(BUILD_DIR)/%.o : %.c | $(BUILD_DIR) $(BUILD_DIR)/src
+$(MAIN_C_OBJS): $(BUILD_DIR)/main/%.o : %.c | $(BUILD_DIR) $(BUILD_DIR)/main $(BUILD_DIR)/main/network-play
+	$(CC) $(CFLAGS) $(CPPFLAGS) $< -MMD -MF $(@:.o=.d) -c -o $@
+
+$(TEST_C_OBJS): $(BUILD_DIR)/test/%.o : %.c | $(BUILD_DIR) $(BUILD_DIR)/test $(BUILD_DIR)/test/network-play-test
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -MMD -MF $(@:.o=.d) -c -o $@
 
 clean:
 	rm -rf $(BUILD_DIR)
 	cd $(DYLIB_DIR) && cargo clean
 
--include $(C_DEPS)
+-include $(MAIN_C_DEPS)
+-include $(TEST_C_DEPS)

@@ -2,11 +2,8 @@ use anyhow::Result;
 use gamecore::network::NetworkModule;
 use serde::{Deserialize, Serialize};
 use serde_json;
-use std::collections::HashMap;
 use std::panic;
 use std::sync::{Arc, Mutex, OnceLock};
-
-use crate::utils::with_network_play_mut;
 
 // Global singleton instance of the NetworkPlay module
 pub static NETWORK_PLAY: OnceLock<Arc<Mutex<NetworkPlayModule>>> = OnceLock::new();
@@ -31,8 +28,6 @@ pub struct NetworkPlayModule {
     network: NetworkModule,
     connected: bool,
     player_id: u32,
-    // Which players can spin
-    player_spin_ability: HashMap<u32, bool>,
 }
 
 impl NetworkPlayModule {
@@ -41,7 +36,6 @@ impl NetworkPlayModule {
             network: NetworkModule::new(),
             connected: false,
             player_id: 1, // Default player ID
-            player_spin_ability: HashMap::new(),
         }
     }
 
@@ -68,45 +62,11 @@ impl NetworkPlayModule {
 
         self.connected = true;
 
-        // Initialize our abilities
-        self.player_spin_ability.insert(self.player_id, false);
-
         Ok(())
     }
 
     pub fn set_player_id(&mut self, id: u32) {
         self.player_id = id;
-        self.player_spin_ability.insert(id, false);
-    }
-
-    pub fn set_player_can_spin(&mut self, can_spin: bool) -> Result<()> {
-        // Update local state
-        self.player_spin_ability.insert(self.player_id, can_spin);
-
-        // Send network event
-        let event = NetworkMessage {
-            event_type: "spin_ability".to_string(),
-            player_id: self.player_id,
-            data: serde_json::json!({ "can_spin": can_spin }),
-        };
-
-        // Use serde_json's to_string, which should never panic on our struct
-        let json = match serde_json::to_string(&event) {
-            Ok(json) => json,
-            Err(e) => {
-                log::error!("Failed to serialize message: {}", e);
-                return Err(anyhow::anyhow!("Serialization error: {}", e));
-            }
-        };
-
-        self.network.send_message(&json)
-    }
-
-    pub fn can_player_spin(&self, player_id: u32) -> bool {
-        self.player_spin_ability
-            .get(&player_id)
-            .copied()
-            .unwrap_or(false)
     }
 }
 
@@ -143,25 +103,6 @@ fn process_network_message(message: &str) -> Result<()> {
     };
 
     log::debug!("Received valid network message: {:?}", network_msg);
-
-    // Process message based on event type
-    if network_msg.event_type == "spin_ability" {
-        if let Some(can_spin) = network_msg.data.get("can_spin").and_then(|v| v.as_bool()) {
-            with_network_play_mut(
-                |module| {
-                    module
-                        .player_spin_ability
-                        .insert(network_msg.player_id, can_spin);
-                    log::debug!(
-                        "Player {} spin ability set to {}",
-                        network_msg.player_id,
-                        can_spin
-                    );
-                },
-                (),
-            );
-        }
-    }
 
     Ok(())
 }

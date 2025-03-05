@@ -9,8 +9,8 @@ crate-type = ["cdylib"]
 [dependencies]
 anyhow = "1.0.70"
 env_logger = "0.10.0"
-gamecore = { path = "../gamecore" }
+gamecore = { path = "../deps/gamecore" }
 log = "0.4.17"
-n64-recomp = { path = "../n64-recomp" }
+n64-recomp = { path = "../deps/n64-recomp" }
 serde = { version = "1.0.218", features = ["derive"] }
 serde_json = "1.0.140"

@@ -5,23 +5,20 @@
 
 # Unique ID of this mod. Pick something long enough that it'll never be the same as any other mod.
 # The name displayed in the mod management menu is separate from this so this doesn't need to be human readable.
-id = "mm_network_play"
+id = "mm_network_play_test"
 
 # Version of this mod.
 version = "1.0.0"
 
 # The name that will show up for this mod in the mod menu. This should be human readable.
-display_name = "Network Play"
+display_name = "Network Play Test"
 
 # The description that will show up when this mod is displayed in the mod menu. This should be human readable.
-description = """
-This is a mod that provides a player sync API for Majora's Mask: Recompiled.
-
-For more details, see https://github.com/retrofoundry/mm-network-play."""
+description = "Test mod for network play capabilities in Majora's Mask: Recompiled."
 
 # A short description that will show up in this mod's entry in the mod list. This should be human readable and kept short
 # to prevent it from being cut off due to the limited space.
-short_description = "Network play API for mods"
+short_description = "Test mod for network play capabilities"
 
 # Authors of this mod.
 authors = ["dcvz"]
@@ -33,31 +30,25 @@ game_id = "mm"
 minimum_recomp_version = "1.2.0"
 
 # Dependency mods. Each entry is the mod's ID and then an optional minimum version of the dependency mod.
-dependencies = []
+dependencies = ["mm_network_play:1.0.0"]
 
 # Native libraries (e.g. DLLs) and the functions they export.
-native_libraries = [
-    { name = "network_play_runtime", funcs = [
-        "NetworkPlayInit",
-        "NetworkPlayConnect",
-        "NetworkPlaySetPlayerId",
-    ] },
-]
+native_libraries = []
 
 # Inputs to the mod tool.
 [inputs]
 
 # Input elf file to generate a mod from.
-elf_path = "build/main/mod.elf"
+elf_path = "../build/test/mod.elf"
 
 # Output mod filename.
-mod_filename = "mm_network_play"
+mod_filename = "mm_network_play_test"
 
 # Reference symbol files.
-func_reference_syms_file = "deps/Zelda64RecompSyms/mm.us.rev1.syms.toml"
+func_reference_syms_file = "../deps/Zelda64RecompSyms/mm.us.rev1.syms.toml"
 data_reference_syms_files = [
-    "deps/Zelda64RecompSyms/mm.us.rev1.datasyms.toml",
-    "deps/Zelda64RecompSyms/mm.us.rev1.datasyms_static.toml",
+    "../deps/Zelda64RecompSyms/mm.us.rev1.datasyms.toml",
+    "../deps/Zelda64RecompSyms/mm.us.rev1.datasyms_static.toml",
 ]
 
 # Additional files to include in the mod.
