@@ -48,29 +48,29 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install Linux dependencies
+      - name: Install Dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-mips-linux-gnu llvm clang-15 ninja-build
 
-      - name: Install macOS dependencies
+      - name: Install Dependencies (macOS)
         if: runner.os == 'macOS'
         uses: pkgxdev/setup@v3
         with:
           +: llvm.org@19
             ninja
 
-      - name: Install Windows Dependencies
+      - name: Install Dependencies (Windows)
         if: runner.os == 'Windows'
         run: |
           choco install ninja
 
-      - name: Configure Developer Command Prompt
+      - name: Configure Developer Command Prompt (Windows)
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Build RecompModTool
+      - name: Build RecompModTool (Unix)
         if: runner.os != 'Windows'
         run: |
           git clone https://github.com/Mr-Wiseguy/N64Recomp.git --recurse-submodules N64RecompSource
@@ -83,7 +83,7 @@ jobs:
 
           cp cmake-build/RecompModTool ..
 
-      - name: Build RecompModTool
+      - name: Build RecompModTool (Windows)
         if: runner.os == 'Windows'
         run: |
           git clone https://github.com/Mr-Wiseguy/N64Recomp.git --recurse-submodules N64RecompSource
@@ -96,16 +96,16 @@ jobs:
 
           cp cmake-build/RecompModTool.exe ..
 
-      - name: Build project
+      - name: Build project (Linux)
         if: runner.os == 'Linux'
         run: make
 
-      - name: Build project
+      - name: Build project (Windows)
         if: runner.os == 'Windows'
         run: make SKIP_RUST=1
         shell: pwsh
 
-      - name: Build project
+      - name: Build project (macOS)
         if: runner.os == 'macOS'
         run: CC=$(pkgx +llvm.org which clang) LD=$(pkgx +llvm.org which ld.lld) pkgx make
 
