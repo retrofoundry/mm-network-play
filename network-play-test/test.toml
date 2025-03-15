@@ -30,7 +30,7 @@ game_id = "mm"
 minimum_recomp_version = "1.2.0"
 
 # Dependency mods. Each entry is the mod's ID and then an optional minimum version of the dependency mod.
-dependencies = ["mm_network_play:1.0.0"]
+dependencies = ["mm_network_play:1.0.0", "ProxyMM_Notifications:0.0.1"]
 
 # Native libraries (e.g. DLLs) and the functions they export.
 native_libraries = []

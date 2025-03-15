@@ -35,30 +35,6 @@ pub extern "C" fn NetworkPlayInit(_rdram: *mut u8, _ctx: *mut RecompContext) {
 }
 
 #[no_mangle]
-pub extern "C" fn NetworkPlayConnect(rdram: *mut u8, ctx: *mut RecompContext) {
-    execute_safely(ctx, "NetworkPlayConnect", |ctx| {
-        let url = unsafe { ctx.get_arg_string(rdram, 0) };
-        log::info!("Connecting to server: {}", url);
-
-        let result = with_network_play_mut(
-            |module| match module.connect(&url) {
-                Ok(_) => {
-                    log::info!("Successfully connected to {}", url);
-                    1i32
-                }
-                Err(e) => {
-                    log::error!("Failed to connect to {}: {}", url, e);
-                    0i32
-                }
-            },
-            0i32,
-        );
-
-        ctx.set_return(result);
-    });
-}
-
-#[no_mangle]
 pub extern "C" fn NetworkPlaySetPlayerId(_rdram: *mut u8, ctx: *mut RecompContext) {
     execute_safely(ctx, "NetworkPlaySetPlayerId", |ctx| {
         let player_id = ctx.a0() as u32;
@@ -70,5 +46,52 @@ pub extern "C" fn NetworkPlaySetPlayerId(_rdram: *mut u8, ctx: *mut RecompContex
             },
             (),
         );
+    });
+}
+
+#[no_mangle]
+pub extern "C" fn NetworkPlayConnect(rdram: *mut u8, ctx: *mut RecompContext) {
+    execute_safely(ctx, "NetworkPlayConnect", |ctx| {
+        let host = unsafe { ctx.get_arg_string(rdram, 0) };
+
+        log::info!("Connecting to server: {}", host);
+
+        let result = with_network_play_mut(
+            |module| match module.connect(&host) {
+                Ok(_) => {
+                    log::info!("Successfully connected to {}", host);
+                    1i32
+                }
+                Err(e) => {
+                    log::error!("Failed to connect to {}: {}", host, e);
+                    0i32
+                }
+            },
+            0i32,
+        );
+
+        ctx.set_return(result);
+    });
+}
+
+#[no_mangle]
+pub extern "C" fn NetworkPlayJoinSession(_rdram: *mut u8, ctx: *mut RecompContext) {
+    execute_safely(ctx, "NetworkPlayJoinSession", |ctx| {
+        let session_id = ctx.a0() as u32;
+
+        log::info!("Joining session {}", session_id);
+
+        // Placeholder for future functionality
+        ctx.set_return(0i32);
+    });
+}
+
+#[no_mangle]
+pub extern "C" fn NetworkPlayLeaveCurrentSession(_rdram: *mut u8, ctx: *mut RecompContext) {
+    execute_safely(ctx, "NetworkPlayLeaveCurrentSession", |ctx| {
+        log::info!("Leaving current session");
+
+        // Placeholder for future functionality
+        ctx.set_return(0i32);
     });
 }
