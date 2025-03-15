@@ -35,21 +35,6 @@ pub extern "C" fn NetworkPlayInit(_rdram: *mut u8, _ctx: *mut RecompContext) {
 }
 
 #[no_mangle]
-pub extern "C" fn NetworkPlaySetPlayerId(_rdram: *mut u8, ctx: *mut RecompContext) {
-    execute_safely(ctx, "NetworkPlaySetPlayerId", |ctx| {
-        let player_id = ctx.a0() as u32;
-
-        with_network_play_mut(
-            |module| {
-                module.set_player_id(player_id);
-                log::info!("Set player ID to {}", player_id);
-            },
-            (),
-        );
-    });
-}
-
-#[no_mangle]
 pub extern "C" fn NetworkPlayConnect(rdram: *mut u8, ctx: *mut RecompContext) {
     execute_safely(ctx, "NetworkPlayConnect", |ctx| {
         let host = unsafe { ctx.get_arg_string(rdram, 0) };

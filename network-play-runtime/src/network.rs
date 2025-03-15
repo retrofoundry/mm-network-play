@@ -19,7 +19,7 @@ pub fn get_network_play() -> Arc<Mutex<NetworkPlayModule>> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct NetworkMessage {
     event_type: String,
-    player_id: u32,
+    player_id: String,
     data: serde_json::Value,
 }
 
@@ -27,7 +27,7 @@ struct NetworkMessage {
 pub struct NetworkPlayModule {
     network: NetworkModule,
     connected: bool,
-    player_id: u32,
+    player_id: String,
 }
 
 impl NetworkPlayModule {
@@ -35,7 +35,7 @@ impl NetworkPlayModule {
         Self {
             network: NetworkModule::new(),
             connected: false,
-            player_id: 1, // Default player ID
+            player_id: "".to_string(), // Default player ID
         }
     }
 
@@ -63,10 +63,6 @@ impl NetworkPlayModule {
         self.connected = true;
 
         Ok(())
-    }
-
-    pub fn set_player_id(&mut self, id: u32) {
-        self.player_id = id;
     }
 }
 
@@ -101,6 +97,13 @@ fn process_network_message(message: &str) -> Result<()> {
             return Ok(());
         }
     };
+
+    if network_msg.event_type == "welcome" {
+        let player_id = network_msg.player_id.clone();
+        let network_play = get_network_play();
+        let mut network_play = network_play.lock().unwrap();
+        network_play.player_id = player_id;
+    }
 
     log::debug!("Received valid network message: {:?}", network_msg);
 

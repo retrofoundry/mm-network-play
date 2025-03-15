@@ -39,7 +39,6 @@ dependencies = []
 native_libraries = [
     { name = "network_play_runtime", funcs = [
         "NetworkPlayInit",
-        "NetworkPlaySetPlayerId",
         "NetworkPlayConnect",
         "NetworkPlayJoinSession",
         "NetworkPlayLeaveCurrentSession",
