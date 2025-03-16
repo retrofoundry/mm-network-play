@@ -17,12 +17,13 @@ On Linux and MacOS, you'll need to also ensure that you have the `zip` utility i
 You'll also need to build [N64Recomp](https://github.com/N64Recomp/N64Recomp) for the `RecompModTool` utility.
 
 ### Building
-* First, run `make` (with an optional job count) to build the mod nrm and the dylib our mod depends on.
+* First, run `make` (with an optional job count) to build the mod nrm, the test nrm and the dylib our mod depends on.
   * On MacOS, you'll need to specify the path to the `clang` and `ld.lld` binaries using the `CC` and `LD` environment variables, respectively:
     ```sh
     CC=$(pkgx +llvm.org which clang) LD=$(pkgx +llvm.org which ld.lld) pkgx make
     ```
 * Copy the NRM and the resulting dylib to your mods directory.
+* Alterntiavely call `make install` to have it automatically build and copy the results to the mods directory.
 
 ### Updating the Majora's Mask Decompilation Submodule
 Mods can also be made with newer versions of the Majora's Mask decompilation instead of the commit targeted by this repo's submodule.
