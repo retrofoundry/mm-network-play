@@ -5,6 +5,27 @@
 #include "recompui.h"
 #include "z64recomp_api.h"
 
+// MARK: - Syncing Whitelist
+
+#define MAX_SYNCED_ACTORS 32
+typedef struct {
+    Actor* actorPtr;      // Pointer to the actor instance
+    u32 syncFlags;       // Which properties to sync for this actor
+} SyncedActor;
+
+static SyncedActor syncedActors[MAX_SYNCED_ACTORS];
+static int syncedActorCount = 0;
+
+// Helper to check if an actor is in our sync whitelist
+static SyncedActor* findSyncedActor(Actor* actor) {
+    for (int i = 0; i < syncedActorCount; i++) {
+        if (syncedActors[i].actorPtr == actor) {
+            return &syncedActors[i];
+        }
+    }
+    return NULL;
+}
+
 // MARK: - Imports
 
 RECOMP_IMPORT(".", void NetworkPlayInit());
@@ -16,17 +37,29 @@ RECOMP_IMPORT(".", u8 NetworkPlayLeaveSession());
 
 RECOMP_CALLBACK("*", recomp_after_actor_update)
 void on_actor_update(PlayState* play, Actor* actor) {
-    // if (actor->id == 0) {
-    //     recomp_printf("OnActorUpdate: player at %f %f %f\n", actor->world.pos.x, actor->world.pos.y, actor->world.pos.z);
-    // } else {
-    //     recomp_printf("OnActorUpdate: actor %u at %f %f %f\n", actor->id, actor->world.pos.x, actor->world.pos.y, actor->world.pos.z);
-    // }
+    SyncedActor* synced = findSyncedActor(actor);
+
+    // Check if actor is in our whitelist - process sync
+    if (synced != NULL) {
+        if (actor->id == 0) {
+            // Player actor sync
+            // TODO: send position, rotation, etc. based on syncFlags
+
+            // recomp_printf("Syncing player actor: pos=%f,%f,%f\n",
+            //     actor->world.pos.x, actor->world.pos.y, actor->world.pos.z);
+        } else {
+            // Other actor sync
+            // recomp_printf("Syncing actor %u: pos=%f,%f,%f\n",
+            //     actor->id, actor->world.pos.x, actor->world.pos.y, actor->world.pos.z);
+        }
+    }
 }
 
 // MARK: - API
 
 RECOMP_EXPORT void NP_Init() {
     NetworkPlayInit();
+    syncedActorCount = 0;
 }
 
 RECOMP_EXPORT u8 NP_Connect(const char* host) {
@@ -43,8 +76,35 @@ RECOMP_EXPORT u8 NP_LeaveSession() {
 
 // MARK: - Syncing
 
-RECOMP_EXPORT void NP_SyncActor(Actor* actor, u32 id, u32 syncFlags) {
-    recomp_printf("Syncing actor %u of type %p with flags %u\n", id, actor, syncFlags);
+RECOMP_EXPORT void NP_SyncActor(Actor* actor, u32 syncFlags) {
+    if (actor == NULL) {
+        recomp_printf("Cannot sync NULL actor\n");
+        return;
+    }
+
+    // Check if actor is already synced
+    SyncedActor* existing = findSyncedActor(actor);
+    if (existing != NULL) {
+        // Update sync flags for existing actor
+        existing->syncFlags = syncFlags;
+        recomp_printf("Updated sync flags for actor %u\n", actor->id);
+        return;
+    }
+
+    // Add to whitelist if there's space
+    if (syncedActorCount < MAX_SYNCED_ACTORS) {
+        syncedActors[syncedActorCount].actorPtr = actor;
+        syncedActors[syncedActorCount].syncFlags = syncFlags;
+        syncedActorCount++;
+
+        if (actor->id == 0) {
+            recomp_printf("Added player to sync whitelist\n");
+        } else {
+            recomp_printf("Added actor %u to sync whitelist\n", actor->id);
+        }
+    } else {
+        recomp_printf("Cannot sync more actors: whitelist full\n");
+    }
 }
 
 // MARK: Actor Extensions

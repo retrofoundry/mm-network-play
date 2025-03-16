@@ -2,6 +2,13 @@
 #include "global.h"
 #include "recomputils.h"
 
+#define NP_SYNC_POSITION  (1 << 0)
+#define NP_SYNC_ROTATION  (1 << 1)
+#define NP_SYNC_VELOCITY  (1 << 2)
+#define NP_SYNC_SCALE     (1 << 3)
+#define NP_SYNC_FLAGS     (1 << 4)
+#define NP_SYNC_ALL       (NP_SYNC_POSITION | NP_SYNC_ROTATION | NP_SYNC_VELOCITY | NP_SYNC_SCALE | NP_SYNC_FLAGS)
+
 // MARK: - Imports
 
 RECOMP_IMPORT("mm_network_play", void NP_Init());
@@ -9,7 +16,7 @@ RECOMP_IMPORT("mm_network_play", u8 NP_Connect(const char* host));
 RECOMP_IMPORT("mm_network_play", u8 NP_JoinSession(const char* session));
 RECOMP_IMPORT("mm_network_play", u8 NP_LeaveSession());
 
-RECOMP_IMPORT("mm_network_play", void NP_SyncActor(Actor* actor, u32 id, u32 syncFlags));
+RECOMP_IMPORT("mm_network_play", void NP_SyncActor(Actor* actor, u32 syncFlags));
 RECOMP_IMPORT("mm_network_play", void NP_ExtendActorSynced(s16 actor_id, u32 size));
 
 RECOMP_IMPORT("ProxyMM_Notifications", void Notifications_Emit(const char* prefix, const char* msg, const char* suffix));
@@ -21,6 +28,7 @@ u8 has_connected = 0;
 RECOMP_CALLBACK("*", recomp_on_init)
 void init_runtime() {
     NP_Init();
+    has_connected = 0;
 }
 
 RECOMP_CALLBACK("*", recomp_on_play_init)
@@ -41,13 +49,9 @@ void on_play_init(PlayState* play) {
             "", // Main Message (white)
             "" // Suffix (Blue)
         );
+        return;
     }
-}
 
-// MARK: - Hooks
-
-RECOMP_HOOK("FileSelect_LoadGame")
-void OnLoadFile(GameState* thisx) {
     u8 result = NP_JoinSession("test");
     if (result) {
         Notifications_Emit(
@@ -62,4 +66,12 @@ void OnLoadFile(GameState* thisx) {
             "" // Suffix (Blue)
         );
     }
+}
+
+// MARK: - Hooks
+
+RECOMP_HOOK("Player_Init")
+void OnPlayerInit(Actor* thisx, PlayState* play) {
+    recomp_printf("Player initialized\n");
+    NP_SyncActor(thisx, NP_SYNC_POSITION);
 }
