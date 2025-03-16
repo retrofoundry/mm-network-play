@@ -27,9 +27,9 @@ struct Args {
 // Message types for the protocol
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ClientMessage {
-    command: String,
-    session_id: Option<String>,
-    data: Option<serde_json::Value>,
+    pub command: String,
+    pub session_id: Option<String>,
+    pub data: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -302,6 +302,17 @@ async fn handle_connection(
 
                                 info!("Player {} left session {}", connection_id, session_id);
                             }
+                        }
+
+                        "player_sync" => {
+                            let sync_msg = ServerMessage {
+                                event_type: "player_sync".to_string(),
+                                player_id: connection_id.clone(),
+                                data: client_msg.data.unwrap_or(serde_json::Value::Null),
+                            };
+
+                            let msg_str = serde_json::to_string(&sync_msg)?;
+                            tx.send((connection_id.clone(), msg_str.clone()))?;
                         }
 
                         _ => {

@@ -1,10 +1,13 @@
+mod messages;
 mod network;
+mod types;
 mod utils;
 
 use env_logger::Builder;
 use n64_recomp::RecompContext;
 use network::get_network_play;
 use std::panic;
+use types::PlayerData;
 use utils::{execute_safely, with_network_play_mut};
 
 // C - API
@@ -120,6 +123,30 @@ pub extern "C" fn NetworkPlayLeaveSession(_rdram: *mut u8, ctx: *mut RecompConte
                 }
                 Err(e) => {
                     log::error!("Failed to leave session: {}", e);
+                    0i32
+                }
+            },
+            0i32,
+        );
+
+        ctx.set_return(result);
+    });
+}
+
+#[no_mangle]
+pub extern "C" fn NetworkPlaySendPlayerSync(rdram: *mut u8, ctx: *mut RecompContext) {
+    execute_safely(ctx, "NetworkPlaySendPlayerSync", |ctx| {
+        let player_data_ptr = unsafe { ctx.get_arg_ptr::<PlayerData>(rdram, 0) };
+        let player_data = unsafe { &*player_data_ptr };
+
+        let result = with_network_play_mut(
+            |module| match module.send_player_sync(player_data) {
+                Ok(_) => {
+                    log::info!("Successfully sent player sync");
+                    1i32
+                }
+                Err(e) => {
+                    log::error!("Failed to send player sync: {}", e);
                     0i32
                 }
             },

@@ -26,12 +26,24 @@ static SyncedActor* findSyncedActor(Actor* actor) {
     return NULL;
 }
 
+// MARK: - Struct
+
+typedef struct {
+    s8 currentBoots;
+    s8 currentShield;
+    Vec3s jointTable[24]; // Array of Vec3s
+    Vec3s upperLimbRot;
+    Vec3s shapeRotation;
+    Vec3f worldPosition;
+} PlayerSyncData;
+
 // MARK: - Imports
 
 RECOMP_IMPORT(".", void NetworkPlayInit());
 RECOMP_IMPORT(".", u8 NetworkPlayConnect(const char* host));
 RECOMP_IMPORT(".", u8 NetworkPlayJoinSession(const char* session));
 RECOMP_IMPORT(".", u8 NetworkPlayLeaveSession());
+RECOMP_IMPORT(".", void NetworkPlaySendPlayerSync(PlayerSyncData* data));
 
 // MARK: - Events
 
@@ -42,11 +54,29 @@ void on_actor_update(PlayState* play, Actor* actor) {
     // Check if actor is in our whitelist - process sync
     if (synced != NULL) {
         if (actor->id == 0) {
-            // Player actor sync
-            // TODO: send position, rotation, etc. based on syncFlags
+            Player* player = (Player*)actor;
+
+            // Create player sync data structure - need to allocate enough space
+            PlayerSyncData* syncData = recomp_alloc(sizeof(PlayerSyncData) + sizeof(Vec3s) * 23); // For 24 joints
+
+            syncData->currentBoots = player->currentBoots;
+            syncData->currentShield = player->currentShield;
+
+            // Copy each joint individually (assuming jointTable is an array of 24 Vec3s)
+            for (int i = 0; i < 24; i++) {
+                Math_Vec3s_Copy(&syncData->jointTable[i], &player->skelAnime.jointTable[i]);
+            }
+
+            Math_Vec3s_Copy(&syncData->upperLimbRot, &player->upperLimbRot);
+            Math_Vec3s_Copy(&syncData->shapeRotation, &actor->shape.rot);
+            Math_Vec3f_Copy(&syncData->worldPosition, &actor->world.pos);
+
+            NetworkPlaySendPlayerSync(syncData);
+
+            recomp_free(syncData);
 
             // recomp_printf("Syncing player actor: pos=%f,%f,%f\n",
-            //     actor->world.pos.x, actor->world.pos.y, actor->world.pos.z);
+            //     syncData.worldPosition.x, syncData.worldPosition.y, syncData.worldPosition.z);
         } else {
             // Other actor sync
             // recomp_printf("Syncing actor %u: pos=%f,%f,%f\n",
@@ -77,6 +107,8 @@ RECOMP_EXPORT u8 NP_LeaveSession() {
 // MARK: - Syncing
 
 RECOMP_EXPORT void NP_SyncActor(Actor* actor, u32 syncFlags) {
+    recomp_printf("Syncing actor %u in room %u\n", actor->id, actor->room);
+
     if (actor == NULL) {
         recomp_printf("Cannot sync NULL actor\n");
         return;

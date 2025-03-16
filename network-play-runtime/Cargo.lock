@@ -529,6 +529,9 @@ dependencies = [
 [[package]]
 name = "n64-recomp"
 version = "0.1.0"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "network-play-runtime"

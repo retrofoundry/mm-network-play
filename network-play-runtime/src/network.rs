@@ -1,10 +1,14 @@
 use anyhow::Result;
 use gamecore::network::NetworkModule;
-use serde::{Deserialize, Serialize};
 use serde_json;
+use std::collections::HashMap;
 use std::panic;
 use std::sync::{Arc, Mutex, OnceLock};
+use std::time::Instant;
 use tokio::runtime::Runtime;
+
+use crate::messages::{JoinSessionMessage, LeaveSessionMessage, NetworkMessage, PlayerSyncMessage};
+use crate::types::{PlayerData, RemotePlayerData};
 
 // Global singleton instances
 pub static NETWORK_PLAY: OnceLock<Arc<Mutex<NetworkPlayModule>>> = OnceLock::new();
@@ -22,20 +26,6 @@ pub fn get_network_play() -> Arc<Mutex<NetworkPlayModule>> {
         .clone()
 }
 
-// Simple message format for our limited functionality
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct NetworkMessage {
-    event_type: String,
-    player_id: String,
-    data: serde_json::Value,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct JoinSessionMessage {
-    command: String,
-    session_id: String,
-}
-
 /// Minimal network play module with just what we need
 pub struct NetworkPlayModule {
     network: NetworkModule,
@@ -43,6 +33,7 @@ pub struct NetworkPlayModule {
     player_id: String,
     current_session_id: Option<String>,
     session_members: Vec<String>,
+    remote_players: HashMap<String, RemotePlayerData>,
 }
 
 impl NetworkPlayModule {
@@ -53,6 +44,7 @@ impl NetworkPlayModule {
             player_id: "".to_string(),
             current_session_id: None,
             session_members: Vec::new(),
+            remote_players: HashMap::new(),
         }
     }
 
@@ -114,10 +106,10 @@ impl NetworkPlayModule {
         }
 
         if let Some(session_id) = &self.current_session_id {
-            let leave_msg = serde_json::json!({
-                "command": "leave_session",
-                "session_id": session_id
-            });
+            let leave_msg = LeaveSessionMessage {
+                command: "leave_session".to_string(),
+                session_id: session_id.to_string(),
+            };
 
             let json = serde_json::to_string(&leave_msg)?;
 
@@ -145,6 +137,31 @@ impl NetworkPlayModule {
         self.connected = false;
         self.current_session_id = None;
         self.session_members.clear();
+
+        Ok(())
+    }
+
+    pub fn send_player_sync(&mut self, player_data: &PlayerData) -> Result<()> {
+        if !self.connected {
+            return Err(anyhow::anyhow!("Not connected"));
+        }
+
+        if let Some(session_id) = &self.current_session_id {
+            let player_update_msg = PlayerSyncMessage {
+                command: "player_sync".to_string(),
+                session_id: session_id.clone(),
+                player_id: self.player_id.clone(),
+                data: player_data.clone(),
+            };
+
+            let json = serde_json::to_string(&player_update_msg)?;
+
+            // Send player data to the server
+            let runtime = get_tokio_runtime();
+            runtime.block_on(async { self.network.send_message(&json).await })?;
+
+            log::info!("Sent player sync data");
+        }
 
         Ok(())
     }
@@ -216,6 +233,30 @@ fn process_network_message(message: &str) -> Result<()> {
                 }
             }
         }
+
+        // Handle player_sync event - updates player data
+        "player_sync" => {
+            if network_msg.player_id != module.player_id {
+                // Only store data from other players, not ourself
+                if let Ok(player_data) =
+                    serde_json::from_value::<PlayerData>(network_msg.data.clone())
+                {
+                    let remote_data = RemotePlayerData {
+                        player_id: network_msg.player_id.clone(),
+                        data: player_data,
+                        last_update: Instant::now(),
+                    };
+
+                    // Store the remote player data
+                    module
+                        .remote_players
+                        .insert(network_msg.player_id.clone(), remote_data);
+
+                    log::debug!("Received player sync from {}", network_msg.player_id);
+                }
+            }
+        }
+
         _ => {
             log::debug!("Unhandled message type: {}", network_msg.event_type);
         }
