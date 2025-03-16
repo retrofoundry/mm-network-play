@@ -5,7 +5,7 @@
 // MARK: - Imports
 
 RECOMP_IMPORT("mm_network_play", void NP_Init());
-RECOMP_IMPORT("mm_network_play", u8 NP_Connect(const char* host, u32 playerId));
+RECOMP_IMPORT("mm_network_play", u8 NP_Connect(const char* host));
 RECOMP_IMPORT("mm_network_play", u8 NP_JoinSession(const char* session));
 RECOMP_IMPORT("mm_network_play", u8 NP_LeaveSession());
 
@@ -21,18 +21,13 @@ u8 has_connected = 0;
 RECOMP_CALLBACK("*", recomp_on_init)
 void init_runtime() {
     NP_Init();
-
-    // Add entry to store rupees
-    // NP_ExtendActorSynced(0, sizeof(s16));
-    // gSaveContext.save.saveInfo.playerData.rupees
 }
 
 RECOMP_CALLBACK("*", recomp_on_play_init)
 void on_play_init(PlayState* play) {
     if (has_connected) return;
     recomp_printf("Connecting to server...\n");
-
-    has_connected = NP_Connect("ws://localhost:8080", 0);
+    has_connected = NP_Connect("ws://localhost:8080");
 
     if (has_connected) {
         Notifications_Emit(

@@ -1,10 +1,10 @@
 use clap::Parser;
+use env_logger::Builder;
 use futures_util::{SinkExt, StreamExt};
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
-    env,
     net::SocketAddr,
     sync::{Arc, Mutex},
 };
@@ -126,11 +126,14 @@ impl ServerState {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize logging
-    if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "info");
-    }
-    env_logger::init();
+    let mut builder = Builder::from_default_env();
+
+    #[cfg(debug_assertions)]
+    builder.filter_level(log::LevelFilter::Debug);
+    #[cfg(not(debug_assertions))]
+    builder.filter_level(log::LevelFilter::Info);
+
+    builder.init();
 
     // Parse command line arguments
     let args = Args::parse();
@@ -231,8 +234,10 @@ async fn handle_connection(
             }
         };
 
+        debug!("Received message from {}", connection_id);
+
         if let Message::Text(text) = msg {
-            debug!("Received message from {}: {}", connection_id, text);
+            debug!("Received text message from {}: {}", connection_id, text);
 
             // Try to parse as client message
             match serde_json::from_str::<ClientMessage>(&text) {

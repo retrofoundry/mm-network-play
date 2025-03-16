@@ -4,9 +4,16 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 use std::panic;
 use std::sync::{Arc, Mutex, OnceLock};
+use tokio::runtime::Runtime;
 
-// Global singleton instance of the NetworkPlay module
+// Global singleton instances
 pub static NETWORK_PLAY: OnceLock<Arc<Mutex<NetworkPlayModule>>> = OnceLock::new();
+pub static TOKIO_RUNTIME: OnceLock<Runtime> = OnceLock::new();
+
+// Get or initialize the tokio runtime
+fn get_tokio_runtime() -> &'static Runtime {
+    TOKIO_RUNTIME.get_or_init(|| Runtime::new().expect("Failed to create Tokio runtime"))
+}
 
 // Get or initialize the network play module singleton
 pub fn get_network_play() -> Arc<Mutex<NetworkPlayModule>> {
@@ -50,10 +57,7 @@ impl NetworkPlayModule {
     }
 
     pub fn connect(&mut self, url: &str) -> Result<()> {
-        // Connect to the network
-        self.network.connect(url)?;
-
-        // Set up the message handler with a panic-safe wrapper
+        // Set up the message handler before connecting
         self.network.on_message(move |message| {
             // Use catch_unwind to prevent thread panics
             if let Err(e) = panic::catch_unwind(|| {
@@ -69,6 +73,10 @@ impl NetworkPlayModule {
                 log::error!("Panic in message handler: {:?}", e);
             }
         });
+
+        // Connect to the network using the tokio runtime
+        let runtime = get_tokio_runtime();
+        runtime.block_on(async { self.network.connect(url).await })?;
 
         self.connected = true;
 
@@ -87,9 +95,10 @@ impl NetworkPlayModule {
             session_id: session_id.to_string(),
         };
 
-        // Send join request
+        // Send join request using the tokio runtime
         let json = serde_json::to_string(&join_msg)?;
-        self.network.send_message(&json)?;
+        let runtime = get_tokio_runtime();
+        runtime.block_on(async { self.network.send_message(&json).await })?;
 
         // Update local state - will be confirmed by server response
         self.current_session_id = Some(session_id.to_string());
@@ -111,11 +120,31 @@ impl NetworkPlayModule {
             });
 
             let json = serde_json::to_string(&leave_msg)?;
-            self.network.send_message(&json)?;
+
+            // Send message using the tokio runtime
+            let runtime = get_tokio_runtime();
+            runtime.block_on(async { self.network.send_message(&json).await })?;
 
             // Update local state - will be confirmed by server response
             log::info!("Sent request to leave session: {}", session_id);
         }
+
+        Ok(())
+    }
+
+    // Disconnect from the server
+    pub fn disconnect(&mut self) -> Result<()> {
+        if !self.connected {
+            return Ok(());
+        }
+
+        // Disconnect using the tokio runtime
+        let runtime = get_tokio_runtime();
+        runtime.block_on(async { self.network.disconnect().await })?;
+
+        self.connected = false;
+        self.current_session_id = None;
+        self.session_members.clear();
 
         Ok(())
     }

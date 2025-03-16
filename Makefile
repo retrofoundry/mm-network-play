@@ -102,16 +102,16 @@ $(MAIN_NRM_TARGET): $(MAIN_TARGET) | $(BUILD_DIR)
 	$(MOD_TOOL) mod.toml $(BUILD_DIR)/main
 
 # Step 3: Build the Rust dylib
-RUST_SRCS := $(shell find $(DYLIB_DIR)/src -name "*.rs")
+RUST_SRCS := $(shell find $(DYLIB_DIR)/src deps/gamecore/src deps/n64-recomp/src -name "*.rs" 2>/dev/null)
 CARGO_TOML := $(DYLIB_DIR)/Cargo.toml
 
 $(DYLIB_TARGET): $(RUST_SRCS) $(CARGO_TOML) | $(BUILD_DIR)
 ifeq ($(SKIP_RUST),0)
-	cd $(DYLIB_DIR) && cargo build --release
+	cd $(DYLIB_DIR) && cargo build
 ifeq ($(OS),Windows_NT)
-	copy "$(DYLIB_DIR)\target\release\$(DYLIB_SRC_NAME)" "$(BUILD_DIR)\$(DYLIB_TARGET_NAME)"
+	copy "$(DYLIB_DIR)\target\debug\$(DYLIB_SRC_NAME)" "$(BUILD_DIR)\$(DYLIB_TARGET_NAME)"
 else
-	cp $(DYLIB_DIR)/target/release/$(DYLIB_SRC_NAME) $(BUILD_DIR)/$(DYLIB_TARGET_NAME)
+	cp $(DYLIB_DIR)/target/debug/$(DYLIB_SRC_NAME) $(BUILD_DIR)/$(DYLIB_TARGET_NAME)
 endif
 endif
 

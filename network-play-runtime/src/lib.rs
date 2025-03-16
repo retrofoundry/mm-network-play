@@ -60,14 +60,50 @@ pub extern "C" fn NetworkPlayConnect(rdram: *mut u8, ctx: *mut RecompContext) {
 }
 
 #[no_mangle]
-pub extern "C" fn NetworkPlayJoinSession(_rdram: *mut u8, ctx: *mut RecompContext) {
+pub extern "C" fn NetworkPlayDisconnect(_rdram: *mut u8, ctx: *mut RecompContext) {
+    execute_safely(ctx, "NetworkPlayDisconnect", |ctx| {
+        log::info!("Disconnecting from server");
+
+        let result = with_network_play_mut(
+            |module| match module.disconnect() {
+                Ok(_) => {
+                    log::info!("Successfully disconnected");
+                    1i32
+                }
+                Err(e) => {
+                    log::error!("Failed to disconnect: {}", e);
+                    0i32
+                }
+            },
+            0i32,
+        );
+
+        ctx.set_return(result);
+    });
+}
+
+#[no_mangle]
+pub extern "C" fn NetworkPlayJoinSession(rdram: *mut u8, ctx: *mut RecompContext) {
     execute_safely(ctx, "NetworkPlayJoinSession", |ctx| {
-        let session_id = ctx.a0() as u32;
+        let session_id = unsafe { ctx.get_arg_string(rdram, 0) };
 
         log::info!("Joining session {}", session_id);
 
-        // Placeholder for future functionality
-        ctx.set_return(0i32);
+        let result = with_network_play_mut(
+            |module| match module.join_session(&session_id) {
+                Ok(_) => {
+                    log::info!("Successfully joined session {}", session_id);
+                    1i32
+                }
+                Err(e) => {
+                    log::error!("Failed to join session {}: {}", session_id, e);
+                    0i32
+                }
+            },
+            0i32,
+        );
+
+        ctx.set_return(result);
     });
 }
 
@@ -76,7 +112,20 @@ pub extern "C" fn NetworkPlayLeaveSession(_rdram: *mut u8, ctx: *mut RecompConte
     execute_safely(ctx, "NetworkPlayLeaveSession", |ctx| {
         log::info!("Leaving current session");
 
-        // Placeholder for future functionality
-        ctx.set_return(0i32);
+        let result = with_network_play_mut(
+            |module| match module.leave_session() {
+                Ok(_) => {
+                    log::info!("Successfully left session");
+                    1i32
+                }
+                Err(e) => {
+                    log::error!("Failed to leave session: {}", e);
+                    0i32
+                }
+            },
+            0i32,
+        );
+
+        ctx.set_return(result);
     });
 }

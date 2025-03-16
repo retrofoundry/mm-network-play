@@ -29,7 +29,7 @@ RECOMP_EXPORT void NP_Init() {
     NetworkPlayInit();
 }
 
-RECOMP_EXPORT u8 NP_Connect(const char* host, u32 playerId) {
+RECOMP_EXPORT u8 NP_Connect(const char* host) {
     return NetworkPlayConnect(host);
 }
 
