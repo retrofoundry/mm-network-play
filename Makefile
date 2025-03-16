@@ -1,6 +1,6 @@
 BUILD_DIR := build
-MAIN_MOD_NAME := mm_network_play-1.0.0
-TEST_MOD_NAME := network_play_test-1.0.0
+MAIN_MOD_NAME := mm_network_play
+TEST_MOD_NAME := mm_network_play_test
 DYLIB_DIR := network-play-runtime
 DYLIB_BASE_NAME := network_play_runtime
 SKIP_RUST ?= 0
@@ -40,6 +40,16 @@ DYLIB_TARGET := $(BUILD_DIR)/$(DYLIB_TARGET_NAME)
 TEST_TARGET  := $(BUILD_DIR)/test/mod.elf
 TEST_NRM_TARGET := $(BUILD_DIR)/$(TEST_MOD_NAME).nrm
 
+# Actual outputs
+MAIN_NRM_ACTUAL := $(BUILD_DIR)/main/$(MAIN_MOD_NAME).nrm
+TEST_NRM_ACTUAL := $(BUILD_DIR)/test/$(TEST_MOD_NAME).nrm
+
+ifeq ($(OS),Windows_NT)
+	INSTALL_DIR := $(LOCALAPPDATA)/Zelda64Recompiled/mods
+else
+	INSTALL_DIR := $(HOME)/.config/Zelda64Recompiled/mods
+endif
+
 LDSCRIPT := mod.ld
 CFLAGS   := -target mips -mips2 -mabi=32 -O2 -G0 -mno-abicalls -mno-odd-spreg -mno-check-zero-division \
             -fomit-frame-pointer -ffast-math -fno-unsafe-math-optimizations -fno-builtin-memset \
@@ -59,13 +69,29 @@ TEST_C_SRCS := $(wildcard network-play-test/*.c)
 TEST_C_OBJS := $(addprefix $(BUILD_DIR)/test/, $(TEST_C_SRCS:.c=.o))
 TEST_C_DEPS := $(addprefix $(BUILD_DIR)/test/, $(TEST_C_SRCS:.c=.d))
 
-.PHONY: all clean main test build-dylib
+.PHONY: all clean main test build-dylib install
 
 all: main test
 
 main: $(MAIN_NRM_TARGET) $(DYLIB_TARGET)
 
 test: $(TEST_NRM_TARGET)
+
+# Install target to copy files to Zelda64Recompiled mods directory
+install: main test
+	@echo "Installing mod files to $(INSTALL_DIR)"
+ifeq ($(OS),Windows_NT)
+	@if not exist "$(INSTALL_DIR)" mkdir "$(INSTALL_DIR)"
+	copy "$(MAIN_NRM_ACTUAL)" "$(INSTALL_DIR)"
+	copy "$(TEST_NRM_ACTUAL)" "$(INSTALL_DIR)"
+	copy "$(DYLIB_TARGET)" "$(INSTALL_DIR)"
+else
+	@mkdir -p "$(INSTALL_DIR)"
+	cp "$(MAIN_NRM_ACTUAL)" "$(INSTALL_DIR)"
+	cp "$(TEST_NRM_ACTUAL)" "$(INSTALL_DIR)"
+	cp "$(DYLIB_TARGET)" "$(INSTALL_DIR)"
+endif
+	@echo "Installation complete"
 
 # Step 1: Build the main .elf file
 $(MAIN_TARGET): $(MAIN_C_OBJS) $(LDSCRIPT) | $(BUILD_DIR)/main
@@ -76,7 +102,10 @@ $(MAIN_NRM_TARGET): $(MAIN_TARGET) | $(BUILD_DIR)
 	$(MOD_TOOL) mod.toml $(BUILD_DIR)/main
 
 # Step 3: Build the Rust dylib
-$(DYLIB_TARGET): | $(BUILD_DIR)
+RUST_SRCS := $(shell find $(DYLIB_DIR)/src -name "*.rs")
+CARGO_TOML := $(DYLIB_DIR)/Cargo.toml
+
+$(DYLIB_TARGET): $(RUST_SRCS) $(CARGO_TOML) | $(BUILD_DIR)
 ifeq ($(SKIP_RUST),0)
 	cd $(DYLIB_DIR) && cargo build --release
 ifeq ($(OS),Windows_NT)
