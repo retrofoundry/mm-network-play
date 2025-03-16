@@ -10,7 +10,7 @@
 RECOMP_IMPORT(".", void NetworkPlayInit());
 RECOMP_IMPORT(".", u8 NetworkPlayConnect(const char* host));
 RECOMP_IMPORT(".", u8 NetworkPlayJoinSession(const char* session));
-RECOMP_IMPORT(".", u8 NetworkPlayLeaveCurrentSession());
+RECOMP_IMPORT(".", u8 NetworkPlayLeaveSession());
 
 // MARK: - Events
 
@@ -37,8 +37,8 @@ RECOMP_EXPORT u8 NP_JoinSession(const char* session) {
     return NetworkPlayJoinSession(session);
 }
 
-RECOMP_EXPORT u8 NP_LeaveCurrentSession() {
-    return NetworkPlayLeaveCurrentSession();
+RECOMP_EXPORT u8 NP_LeaveSession() {
+    return NetworkPlayLeaveSession();
 }
 
 // MARK: - Syncing

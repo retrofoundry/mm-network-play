@@ -72,8 +72,8 @@ pub extern "C" fn NetworkPlayJoinSession(_rdram: *mut u8, ctx: *mut RecompContex
 }
 
 #[no_mangle]
-pub extern "C" fn NetworkPlayLeaveCurrentSession(_rdram: *mut u8, ctx: *mut RecompContext) {
-    execute_safely(ctx, "NetworkPlayLeaveCurrentSession", |ctx| {
+pub extern "C" fn NetworkPlayLeaveSession(_rdram: *mut u8, ctx: *mut RecompContext) {
+    execute_safely(ctx, "NetworkPlayLeaveSession", |ctx| {
         log::info!("Leaving current session");
 
         // Placeholder for future functionality

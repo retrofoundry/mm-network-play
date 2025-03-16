@@ -194,22 +194,10 @@ async fn handle_connection(
     let (mut ws_sender, mut ws_receiver) = ws_stream.split();
 
     // Send welcome message with connection ID
-    let welcome = {
-        // Get a lock on the server state
-        let state_lock = state.lock().unwrap();
-
-        // Get user count and user IDs from the state
-        let user_count = state_lock.connections.len();
-        let user_ids: Vec<String> = state_lock.connections.keys().cloned().collect();
-
-        ServerMessage {
-            event_type: "welcome".to_string(),
-            player_id: connection_id.clone(),
-            data: serde_json::json!({
-                "user_count": user_count,
-                "user_ids": user_ids
-            }),
-        }
+    let welcome = ServerMessage {
+        event_type: "welcome".to_string(),
+        player_id: connection_id.clone(),
+        data: serde_json::json!({}),
     };
 
     ws_sender
@@ -308,34 +296,6 @@ async fn handle_connection(
                                 }
 
                                 info!("Player {} left session {}", connection_id, session_id);
-                            }
-                        }
-
-                        "sync" => {
-                            // Forward sync messages to others in the session
-                            if let Some(session_id) = client_msg.session_id {
-                                let state = state.lock().unwrap();
-                                if state.is_in_session(&connection_id, &session_id) {
-                                    let members = state.get_session_members(&session_id);
-
-                                    // Create sync message
-                                    let sync_msg = ServerMessage {
-                                        event_type: "sync".to_string(),
-                                        player_id: connection_id.clone(),
-                                        data: client_msg.data.unwrap_or(serde_json::json!({})),
-                                    };
-
-                                    let msg_str = serde_json::to_string(&sync_msg)?;
-
-                                    // Forward to all other members (excluding sender)
-                                    for member in members {
-                                        if member != connection_id {
-                                            tx.send((member, msg_str.clone()))?;
-                                        }
-                                    }
-
-                                    debug!("Synced data from player {}", connection_id);
-                                }
                             }
                         }
 

@@ -41,7 +41,7 @@ native_libraries = [
         "NetworkPlayInit",
         "NetworkPlayConnect",
         "NetworkPlayJoinSession",
-        "NetworkPlayLeaveCurrentSession",
+        "NetworkPlayLeaveSession",
     ] },
 ]
 

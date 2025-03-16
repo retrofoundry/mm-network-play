@@ -23,14 +23,19 @@ struct NetworkMessage {
     data: serde_json::Value,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct JoinSessionMessage {
+    command: String,
+    session_id: String,
+}
+
 /// Minimal network play module with just what we need
 pub struct NetworkPlayModule {
     network: NetworkModule,
     connected: bool,
     player_id: String,
-
-    user_count: usize,
-    user_ids: Vec<String>,
+    current_session_id: Option<String>,
+    session_members: Vec<String>,
 }
 
 impl NetworkPlayModule {
@@ -38,10 +43,9 @@ impl NetworkPlayModule {
         Self {
             network: NetworkModule::new(),
             connected: false,
-            player_id: "".to_string(), // Default player ID
-
-            user_count: 0,
-            user_ids: Vec::new(),
+            player_id: "".to_string(),
+            current_session_id: None,
+            session_members: Vec::new(),
         }
     }
 
@@ -67,6 +71,51 @@ impl NetworkPlayModule {
         });
 
         self.connected = true;
+
+        Ok(())
+    }
+
+    // Join a specific game session
+    pub fn join_session(&mut self, session_id: &str) -> Result<()> {
+        if !self.connected {
+            return Err(anyhow::anyhow!("Not connected to server"));
+        }
+
+        // Create join session message
+        let join_msg = JoinSessionMessage {
+            command: "join_session".to_string(),
+            session_id: session_id.to_string(),
+        };
+
+        // Send join request
+        let json = serde_json::to_string(&join_msg)?;
+        self.network.send_message(&json)?;
+
+        // Update local state - will be confirmed by server response
+        self.current_session_id = Some(session_id.to_string());
+        log::info!("Sent join request for session: {}", session_id);
+
+        Ok(())
+    }
+
+    // Leave the current session
+    pub fn leave_session(&mut self) -> Result<()> {
+        if !self.connected {
+            return Err(anyhow::anyhow!("Not connected to server"));
+        }
+
+        if let Some(session_id) = &self.current_session_id {
+            let leave_msg = serde_json::json!({
+                "command": "leave_session",
+                "session_id": session_id
+            });
+
+            let json = serde_json::to_string(&leave_msg)?;
+            self.network.send_message(&json)?;
+
+            // Update local state - will be confirmed by server response
+            log::info!("Sent request to leave session: {}", session_id);
+        }
 
         Ok(())
     }
@@ -104,39 +153,43 @@ fn process_network_message(message: &str) -> Result<()> {
         }
     };
 
-    if network_msg.event_type == "welcome" {
-        let player_id = network_msg.player_id.clone();
+    let network_play = get_network_play();
+    let mut module = network_play.lock().unwrap();
 
-        // Extract user count and user IDs from the data field
-        let user_count = network_msg
-            .data
-            .get("user_count")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0) as usize;
+    match network_msg.event_type.as_str() {
+        // Handle welcome message - just gets our player ID
+        "welcome" => {
+            module.player_id = network_msg.player_id.clone();
+            log::info!("Connected as player ID: {}", module.player_id);
+        }
 
-        let user_ids = network_msg
-            .data
-            .get("user_ids")
-            .and_then(|v| v.as_array())
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|v| v.as_str().map(String::from))
-                    .collect::<Vec<String>>()
-            })
-            .unwrap_or_default();
+        // Handle session_members event - updates who's in our session
+        "session_members" => {
+            if let Some(session_id) = network_msg.data.get("session_id").and_then(|v| v.as_str()) {
+                // Update our current session ID
+                module.current_session_id = Some(session_id.to_string());
 
-        let network_play = get_network_play();
-        let mut network_play = network_play.lock().unwrap();
-        network_play.player_id = player_id;
-        network_play.user_count = user_count;
-        network_play.user_ids = user_ids;
+                // Update the member list
+                if let Some(members) = network_msg.data.get("members").and_then(|v| v.as_array()) {
+                    let session_members: Vec<String> = members
+                        .iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect();
 
-        log::info!("Connected as player ID: {}", network_play.player_id);
-        log::info!(
-            "Current users: {} ({:?})",
-            network_play.user_count,
-            network_play.user_ids
-        );
+                    module.session_members = session_members;
+
+                    log::info!(
+                        "Session '{}' updated: {} members: {:?}",
+                        session_id,
+                        module.session_members.len(),
+                        module.session_members
+                    );
+                }
+            }
+        }
+        _ => {
+            log::debug!("Unhandled message type: {}", network_msg.event_type);
+        }
     }
 
     log::debug!("Received valid network message: {:?}", network_msg);

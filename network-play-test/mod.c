@@ -7,7 +7,7 @@
 RECOMP_IMPORT("mm_network_play", void NP_Init());
 RECOMP_IMPORT("mm_network_play", u8 NP_Connect(const char* host, u32 playerId));
 RECOMP_IMPORT("mm_network_play", u8 NP_JoinSession(const char* session));
-RECOMP_IMPORT("mm_network_play", u8 NP_LeaveCurrentSession());
+RECOMP_IMPORT("mm_network_play", u8 NP_LeaveSession());
 
 RECOMP_IMPORT("mm_network_play", void NP_SyncActor(Actor* actor, u32 id, u32 syncFlags));
 RECOMP_IMPORT("mm_network_play", void NP_ExtendActorSynced(s16 actor_id, u32 size));
