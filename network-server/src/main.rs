@@ -56,6 +56,7 @@ impl ServerState {
     }
 
     fn register_connection(&mut self, id: &str) {
+        info!("Registering connection: {}", id);
         self.connections.insert(id.to_string(), None);
     }
 
@@ -193,13 +194,24 @@ async fn handle_connection(
     let (mut ws_sender, mut ws_receiver) = ws_stream.split();
 
     // Send welcome message with connection ID
-    let welcome = ServerMessage {
-        event_type: "welcome".to_string(),
-        player_id: connection_id.clone(),
-        data: serde_json::json!({
-            "message": "Connected to game server",
-        }),
+    let welcome = {
+        // Get a lock on the server state
+        let state_lock = state.lock().unwrap();
+
+        // Get user count and user IDs from the state
+        let user_count = state_lock.connections.len();
+        let user_ids: Vec<String> = state_lock.connections.keys().cloned().collect();
+
+        ServerMessage {
+            event_type: "welcome".to_string(),
+            player_id: connection_id.clone(),
+            data: serde_json::json!({
+                "user_count": user_count,
+                "user_ids": user_ids
+            }),
+        }
     };
+
     ws_sender
         .send(Message::Text(serde_json::to_string(&welcome)?))
         .await?;

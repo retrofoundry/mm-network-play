@@ -30,6 +30,7 @@ void init_runtime() {
 RECOMP_CALLBACK("*", recomp_on_play_init)
 void on_play_init(PlayState* play) {
     if (has_connected) return;
+    recomp_printf("Connecting to server...\n");
 
     has_connected = NP_Connect("ws://localhost:8080", 0);
 

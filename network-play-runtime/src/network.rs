@@ -28,6 +28,9 @@ pub struct NetworkPlayModule {
     network: NetworkModule,
     connected: bool,
     player_id: String,
+
+    user_count: usize,
+    user_ids: Vec<String>,
 }
 
 impl NetworkPlayModule {
@@ -36,6 +39,9 @@ impl NetworkPlayModule {
             network: NetworkModule::new(),
             connected: false,
             player_id: "".to_string(), // Default player ID
+
+            user_count: 0,
+            user_ids: Vec::new(),
         }
     }
 
@@ -100,9 +106,37 @@ fn process_network_message(message: &str) -> Result<()> {
 
     if network_msg.event_type == "welcome" {
         let player_id = network_msg.player_id.clone();
+
+        // Extract user count and user IDs from the data field
+        let user_count = network_msg
+            .data
+            .get("user_count")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as usize;
+
+        let user_ids = network_msg
+            .data
+            .get("user_ids")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect::<Vec<String>>()
+            })
+            .unwrap_or_default();
+
         let network_play = get_network_play();
         let mut network_play = network_play.lock().unwrap();
         network_play.player_id = player_id;
+        network_play.user_count = user_count;
+        network_play.user_ids = user_ids;
+
+        log::info!("Connected as player ID: {}", network_play.player_id);
+        log::info!(
+            "Current users: {} ({:?})",
+            network_play.user_count,
+            network_play.user_ids
+        );
     }
 
     log::debug!("Received valid network message: {:?}", network_msg);
