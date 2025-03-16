@@ -23,7 +23,13 @@ You'll also need to build [N64Recomp](https://github.com/N64Recomp/N64Recomp) fo
     CC=$(pkgx +llvm.org which clang) LD=$(pkgx +llvm.org which ld.lld) pkgx make
     ```
 * Copy the NRM and the resulting dylib to your mods directory.
-* Alterntiavely call `make install` to have it automatically build and copy the results to the mods directory.
+  * Alternatively call `make install` to have it automatically build and copy the results to the mods directory.
+* Start the server
+    ```sh
+    cd network-server
+    cargo run
+    ```
+
 
 ### Updating the Majora's Mask Decompilation Submodule
 Mods can also be made with newer versions of the Majora's Mask decompilation instead of the commit targeted by this repo's submodule.
