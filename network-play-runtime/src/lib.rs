@@ -141,10 +141,7 @@ pub extern "C" fn NetworkPlaySendPlayerSync(rdram: *mut u8, ctx: *mut RecompCont
 
         let result = with_network_play_mut(
             |module| match module.send_player_sync(player_data) {
-                Ok(_) => {
-                    log::info!("Successfully sent player sync");
-                    1i32
-                }
+                Ok(_) => 1i32,
                 Err(e) => {
                     log::error!("Failed to send player sync: {}", e);
                     0i32

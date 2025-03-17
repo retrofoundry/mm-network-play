@@ -21,6 +21,10 @@ RECOMP_IMPORT("mm_network_play", void NP_ExtendActorSynced(s16 actor_id, u32 siz
 
 RECOMP_IMPORT("ProxyMM_Notifications", void Notifications_Emit(const char* prefix, const char* msg, const char* suffix));
 
+// MARK: - Forward Declarations
+
+void remote_actors_update(PlayState* play);
+
 // MARK: - Events
 
 u8 has_connected = 0;
@@ -68,10 +72,26 @@ void on_play_init(PlayState* play) {
     }
 }
 
+// Process remote players on frame
+RECOMP_CALLBACK("*", recomp_on_play_main)
+void on_play_main(PlayState* play) {
+    static u32 last_update = 0;
+
+    if (!has_connected) return;
+    remote_actors_update(play);
+}
+
 // MARK: - Hooks
 
 RECOMP_HOOK("Player_Init")
 void OnPlayerInit(Actor* thisx, PlayState* play) {
     recomp_printf("Player initialized\n");
     NP_SyncActor(thisx, NP_SYNC_POSITION);
+}
+
+// MARK: - Remote Player Actor Processing
+
+void remote_actors_update(PlayState* play) {
+    recomp_printf("Updating remote player actors...\n");
+    remotePlayerCount = NP_GetRemotePlayers(MAX_REMOTE_PLAYERS, remotePlayerData, (char*)remotePlayerIds, 64);
 }

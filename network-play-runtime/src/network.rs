@@ -159,8 +159,6 @@ impl NetworkPlayModule {
             // Send player data to the server
             let runtime = get_tokio_runtime();
             runtime.block_on(async { self.network.send_message(&json).await })?;
-
-            log::info!("Sent player sync data");
         }
 
         Ok(())
@@ -169,8 +167,6 @@ impl NetworkPlayModule {
 
 // Separate function to process messages that can safely access the global singleton
 fn process_network_message(message: &str) -> Result<()> {
-    log::debug!("Processing raw message: {}", message);
-
     // Check if the message is empty or just whitespace
     if message.trim().is_empty() {
         log::debug!("Received empty message, ignoring");
@@ -261,8 +257,6 @@ fn process_network_message(message: &str) -> Result<()> {
             log::debug!("Unhandled message type: {}", network_msg.event_type);
         }
     }
-
-    log::debug!("Received valid network message: {:?}", network_msg);
 
     Ok(())
 }
