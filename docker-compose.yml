@@ -1,0 +1,12 @@
+version: "3.8"
+
+services:
+  network-server:
+    build:
+      context: ./network-server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - RUST_LOG=info
