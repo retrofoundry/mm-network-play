@@ -1,6 +1,7 @@
 #include "modding.h"
 #include "global.h"
 #include "recomputils.h"
+#include "z_remote_player.h"
 
 // MARK: - Imports
 
@@ -36,29 +37,7 @@ typedef struct {
 
 // MARK: - Custom Actors
 
-#define FLAGS 0
-
-void RemotePlayerActor_Init(Actor* thisx, PlayState* play) {}
-void RemotePlayerActor_Destroy(Actor* thisx, PlayState* play) {}
-void RemotePlayerActor_Update(Actor* thisx, PlayState* play) {}
-void RemotePlayerActor_Draw(Actor* thisx, PlayState* play) {}
-
-typedef struct RemotePlayerActor {
-
-} RemotePlayerActor;
-
-ActorProfile RemotePlayerActor_Profile = {
-    /**/ ACTOR_ID_MAX,
-    /**/ ACTORCAT_NPC,
-    /**/ FLAGS,
-    /**/ GAMEPLAY_KEEP,
-    /**/ sizeof(RemotePlayerActor),
-    /**/ RemotePlayerActor_Init,
-    /**/ RemotePlayerActor_Destroy,
-    /**/ RemotePlayerActor_Update,
-    /**/ RemotePlayerActor_Draw,
-};
-
+extern ActorProfile RemotePlayer_InitVars;
 s16 ACTOR_REMOTE_PLAYER = ACTOR_ID_MAX;
 
 // MARK: - Events
@@ -70,7 +49,7 @@ void init_runtime() {
     has_connected = 0;
 
     NP_Init();
-    ACTOR_REMOTE_PLAYER = CustomActor_Register(&RemotePlayerActor_Profile);
+    ACTOR_REMOTE_PLAYER = CustomActor_Register(&RemotePlayer_InitVars);
 }
 
 RECOMP_CALLBACK("*", recomp_on_play_init)
@@ -150,7 +129,7 @@ void remote_actors_update(PlayState* play) {
         // Find actor with given ID
         while (actor != NULL) {
             if (actor->id == ACTOR_REMOTE_PLAYER) {
-                RemotePlayerActor* remote = (RemotePlayerActor*)actor;
+                RemotePlayer* remote = (RemotePlayer*)actor;
 
                 // Check if this is the same player by ID via extension data?
                 // If we find it then break so we can complete this part
@@ -178,7 +157,7 @@ void remote_actors_update(PlayState* play) {
     while (actor != NULL) {
         Actor* next = actor->next; // Save next pointer as we may delete this actor
         if (actor->id == ACTOR_REMOTE_PLAYER) {
-            RemotePlayerActor* remote = (RemotePlayerActor*)actor;
+            RemotePlayer* remote = (RemotePlayer*)actor;
             // 1. Grab ID via extension data
             // 2. Check if ID exists in remotePlayerIds array
             // 3. If not, remove actor
