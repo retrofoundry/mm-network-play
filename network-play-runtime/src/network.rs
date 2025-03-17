@@ -30,7 +30,7 @@ pub fn get_network_play() -> Arc<Mutex<NetworkPlayModule>> {
 pub struct NetworkPlayModule {
     network: NetworkModule,
     connected: bool,
-    player_id: String,
+    pub player_id: String,
     current_session_id: Option<String>,
     session_members: Vec<String>,
     pub remote_players: HashMap<String, RemotePlayerData>,

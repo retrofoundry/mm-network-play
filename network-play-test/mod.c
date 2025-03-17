@@ -12,7 +12,7 @@ RECOMP_IMPORT("mm_network_play", u8 NP_LeaveSession());
 RECOMP_IMPORT("mm_network_play", u32 NP_GetRemotePlayerIDs(u32 maxPlayers, char* idsBuffer, u32 idBufferSize));
 RECOMP_IMPORT("mm_network_play", u32 NP_GetRemotePlayerData(const char* playerID, void* dataBuffer));
 
-RECOMP_IMPORT("mm_network_play", void NP_SyncActor(Actor* actor));
+RECOMP_IMPORT("mm_network_play", void NP_SyncActor(Actor* actor, const char* playerID));
 RECOMP_IMPORT("mm_network_play", void NP_ExtendActorSynced(s16 actor_id, u32 size));
 
 RECOMP_IMPORT("ProxyMM_Notifications", void Notifications_Emit(const char* prefix, const char* msg, const char* suffix));
@@ -103,7 +103,7 @@ void on_play_main(PlayState* play) {
 RECOMP_HOOK("Player_Init")
 void OnPlayerInit(Actor* thisx, PlayState* play) {
     recomp_printf("Player initialized\n");
-    NP_SyncActor(thisx);
+    NP_SyncActor(thisx, NULL);
 }
 
 // MARK: - Remote Player Actor Processing
@@ -112,6 +112,7 @@ void OnPlayerInit(Actor* thisx, PlayState* play) {
 static char remotePlayerIds[MAX_REMOTE_PLAYERS][64];
 static u32 remotePlayerCount = 0;
 
+// Checks whether we need to create or destroy actors
 void remote_actors_update(PlayState* play) {
     recomp_printf("Updating remote player actors...\n");
 

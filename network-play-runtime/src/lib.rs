@@ -85,6 +85,35 @@ pub extern "C" fn NetworkPlayDisconnect(_rdram: *mut u8, ctx: *mut RecompContext
 }
 
 #[no_mangle]
+pub extern "C" fn NetworkPlayGetPlayerId(rdram: *mut u8, ctx: *mut RecompContext) {
+    execute_safely(ctx, "NetworkPlayGetPlayerId", |ctx| {
+        let player_id_buf = ctx.get_arg_u64(0);
+        let max_len = ctx.get_arg_u32(1) as usize;
+
+        let success = with_network_play(
+            |module| {
+                if !module.player_id.is_empty() {
+                    unsafe {
+                        let _ = ctx.write_string_to_mem(
+                            rdram,
+                            player_id_buf,
+                            &module.player_id,
+                            max_len,
+                        );
+                    }
+                    1i32
+                } else {
+                    0i32
+                }
+            },
+            0i32,
+        );
+
+        ctx.set_return(success);
+    });
+}
+
+#[no_mangle]
 pub extern "C" fn NetworkPlayJoinSession(rdram: *mut u8, ctx: *mut RecompContext) {
     execute_safely(ctx, "NetworkPlayJoinSession", |ctx| {
         let session_id = unsafe { ctx.get_arg_string(rdram, 0) };

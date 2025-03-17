@@ -4,25 +4,27 @@
 #include "recompconfig.h"
 #include "recompui.h"
 #include "z64recomp_api.h"
+#include <stdint.h>
+#include <string.h>
 
-// MARK: - Syncing Whitelist
+// MARK: - Actor Extension
 
-#define MAX_SYNCED_ACTORS 32
+// Extension ID for network player data
+const ActorExtensionId ACTOR_EXTENSION_INVALID = UINT32_MAX;
+static ActorExtensionId gNetworkPlayerExtension = ACTOR_EXTENSION_INVALID;
+
+// Structure to hold network-specific data for each actor
 typedef struct {
-    Actor* actorPtr;      // Pointer to the actor instance
-} SyncedActor;
+    char player_id[64];    // UUID string for this actor
+    u8 is_synced;          // Flag indicating if actor is being synced
+} NetworkPlayerData;
 
-static SyncedActor syncedActors[MAX_SYNCED_ACTORS];
-static int syncedActorCount = 0;
-
-// Helper to check if an actor is in our sync whitelist
-static SyncedActor* findSyncedActor(Actor* actor) {
-    for (int i = 0; i < syncedActorCount; i++) {
-        if (syncedActors[i].actorPtr == actor) {
-            return &syncedActors[i];
-        }
+static NetworkPlayerData* GetActorNetworkData(Actor* actor) {
+    if (gNetworkPlayerExtension == ACTOR_EXTENSION_INVALID) {
+        return NULL;
     }
-    return NULL;
+
+    return (NetworkPlayerData*)z64recomp_get_extended_actor_data(actor, gNetworkPlayerExtension);
 }
 
 // MARK: - Struct
@@ -43,6 +45,7 @@ RECOMP_IMPORT(".", void NetworkPlayInit());
 RECOMP_IMPORT(".", u8 NetworkPlayConnect(const char* host));
 RECOMP_IMPORT(".", u8 NetworkPlayJoinSession(const char* session));
 RECOMP_IMPORT(".", u8 NetworkPlayLeaveSession());
+RECOMP_IMPORT(".", u8 NetworkPlayGetPlayerId(char* buffer, u32 bufferSize));
 RECOMP_IMPORT(".", void NetworkPlaySendPlayerSync(PlayerSyncData* data));
 RECOMP_IMPORT(".", u32 NetworkPlayGetRemotePlayerIDs(u32 maxPlayers, char* idsBuffer, u32 idBufferSize));
 RECOMP_IMPORT(".", u32 NetworkPlayGetRemotePlayerData(const char* player_id, PlayerSyncData* data));
@@ -51,54 +54,46 @@ RECOMP_IMPORT(".", u32 NetworkPlayGetRemotePlayerData(const char* player_id, Pla
 
 RECOMP_CALLBACK("*", recomp_after_actor_update)
 void on_actor_update(PlayState* play, Actor* actor) {
-    SyncedActor* synced = findSyncedActor(actor);
+    NetworkPlayerData* netData = GetActorNetworkData(actor);
 
-    // Check if actor is in our whitelist - process sync
-    if (synced != NULL) {
-        if (actor->id == 0) {
-            Player* player = (Player*)actor;
-
-            // Create player sync data structure - need to allocate enough space
-            PlayerSyncData* syncData = recomp_alloc(sizeof(PlayerSyncData) + sizeof(Vec3s) * 23); // For 24 joints
-
-            syncData->currentBoots = player->currentBoots;
-            syncData->currentShield = player->currentShield;
-
-            // Copy each joint individually (assuming jointTable is an array of 24 Vec3s)
-            for (int i = 0; i < 24; i++) {
-                Math_Vec3s_Copy(&syncData->jointTable[i], &player->skelAnime.jointTable[i]);
-            }
-
-            Math_Vec3s_Copy(&syncData->upperLimbRot, &player->upperLimbRot);
-            Math_Vec3s_Copy(&syncData->shapeRotation, &actor->shape.rot);
-            Math_Vec3f_Copy(&syncData->worldPosition, &actor->world.pos);
-
-            NetworkPlaySendPlayerSync(syncData);
-
-            recomp_free(syncData);
-
-            // recomp_printf("Syncing player actor: pos=%f,%f,%f\n",
-            //     syncData.worldPosition.x, syncData.worldPosition.y, syncData.worldPosition.z);
-        } else {
-            // Other actor sync
-            // 1. Let's grab the player id from the extensions.
-            // 2. Request stored data from the dylib
-            // 3. Set the properties on the actor
-
-            // PlayerSyncData playerData;
-            // return NetworkPlayGetRemotePlayerData(playerID, dataBuffer);
-
-            // recomp_printf("Syncing actor %u: pos=%f,%f,%f\n",
-            //     actor->id, actor->world.pos.x, actor->world.pos.y, actor->world.pos.z);
-        }
+    // Skip actors that aren't being synced or aren't the main player
+    if (netData == NULL || !netData->is_synced || actor->id != 0) {
+        return;
     }
+
+    // Sync the player movement data to the server
+    Player* player = (Player*)actor;
+    PlayerSyncData* syncData = recomp_alloc(sizeof(PlayerSyncData) + sizeof(Vec3s) * 23); // For 24 joints
+
+    syncData->currentBoots = player->currentBoots;
+    syncData->currentShield = player->currentShield;
+
+    // Copy each joint individually (assuming jointTable is an array of 24 Vec3s)
+    for (int i = 0; i < 24; i++) {
+        Math_Vec3s_Copy(&syncData->jointTable[i], &player->skelAnime.jointTable[i]);
+    }
+
+    Math_Vec3s_Copy(&syncData->upperLimbRot, &player->upperLimbRot);
+    Math_Vec3s_Copy(&syncData->shapeRotation, &actor->shape.rot);
+    Math_Vec3f_Copy(&syncData->worldPosition, &actor->world.pos);
+
+    NetworkPlaySendPlayerSync(syncData);
+
+    recomp_free(syncData);
 }
 
 // MARK: - API
 
 RECOMP_EXPORT void NP_Init() {
     NetworkPlayInit();
-    syncedActorCount = 0;
+
+    // Create actor extension for network player data
+    if (gNetworkPlayerExtension == ACTOR_EXTENSION_INVALID) {
+        gNetworkPlayerExtension = z64recomp_extend_actor_all(sizeof(NetworkPlayerData));
+        if (gNetworkPlayerExtension == ACTOR_EXTENSION_INVALID) {
+            recomp_printf("Failed to create network player extension\n");
+        }
+    }
 }
 
 RECOMP_EXPORT u8 NP_Connect(const char* host) {
@@ -115,32 +110,39 @@ RECOMP_EXPORT u8 NP_LeaveSession() {
 
 // MARK: - Syncing
 
-RECOMP_EXPORT void NP_SyncActor(Actor* actor) {
-    recomp_printf("Syncing actor %u in room %u\n", actor->id, actor->room);
-
+RECOMP_EXPORT void NP_SyncActor(Actor* actor, const char* playerID) {
     if (actor == NULL) {
         recomp_printf("Cannot sync NULL actor\n");
         return;
     }
 
-    // Check if actor is already synced
-    SyncedActor* existing = findSyncedActor(actor);
-    if (existing != NULL) {
+    // Extension creation should be handled in NP_Init, but just in case someone calls this first
+    if (gNetworkPlayerExtension == ACTOR_EXTENSION_INVALID) {
+        gNetworkPlayerExtension = z64recomp_extend_actor(ACTOR_ID_MAX, sizeof(NetworkPlayerData));
+    }
+
+    // Get or create network data for this actor
+    NetworkPlayerData* netData = GetActorNetworkData(actor);
+    if (netData == NULL) {
+        recomp_printf("Failed to get network data for actor %u\n", actor->id);
         return;
     }
 
-    // Add to whitelist if there's space
-    if (syncedActorCount < MAX_SYNCED_ACTORS) {
-        syncedActors[syncedActorCount].actorPtr = actor;
-        syncedActorCount++;
+    // Mark actor as synced
+    netData->is_synced = 1;
 
-        if (actor->id == 0) {
-            recomp_printf("Added player to sync whitelist\n");
+    if (actor->id == 0) {
+        char playerIdBuffer[64];
+        u8 success = NetworkPlayGetPlayerId(playerIdBuffer, sizeof(playerIdBuffer));
+        if (success) {
+            strcpy(netData->player_id, playerIdBuffer);
+            recomp_printf("Added player to sync system\n");
         } else {
-            recomp_printf("Added actor %u to sync whitelist\n", actor->id);
+            recomp_printf("Failed to get player ID\n");
         }
     } else {
-        recomp_printf("Cannot sync more actors: whitelist full\n");
+        strcpy(netData->player_id, playerID);
+        recomp_printf("Added actor %u to sync system\n", actor->id);
     }
 }
 
@@ -150,22 +152,4 @@ RECOMP_EXPORT u32 NP_GetRemotePlayerIDs(u32 maxPlayers, char* idsBuffer, u32 idB
 
 RECOMP_EXPORT u32 NP_GetRemotePlayerData(const char *playerID, void* dataBuffer) {
     return NetworkPlayGetRemotePlayerData(playerID, dataBuffer);
-}
-
-// MARK: Actor Extensions
-
-RECOMP_EXPORT ActorExtensionId NP_ExtendActorSynced(s16 actor_id, u32 size) {
-    return z64recomp_extend_actor(actor_id, size);
-}
-
-// RECOMP_EXPORT void NP_WriteActorSyncedData(Actor* actor, ActorExtensionId extension, const void* data) {
-//     void* actor_data = z64recomp_get_extended_actor_data(actor, extension);
-//     if (actor_data) {
-//         memcpy(actor_data, data, z64recomp_get_actor_data_size(extension));
-//         // push to network
-//     }
-// }
-
-RECOMP_EXPORT void* NP_GetExtendedActorSyncedData(Actor* actor, ActorExtensionId extension) {
-    return z64recomp_get_extended_actor_data(actor, extension);
 }
