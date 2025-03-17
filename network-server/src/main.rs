@@ -312,7 +312,14 @@ async fn handle_connection(
                             };
 
                             let msg_str = serde_json::to_string(&sync_msg)?;
-                            tx.send((connection_id.clone(), msg_str.clone()))?;
+
+                            // Broadcast to everyone in the same session
+                            let state = state.lock().unwrap();
+                            if let Some(Some(session_id)) = state.connections.get(&connection_id) {
+                                for member in state.get_session_members(session_id) {
+                                    tx.send((member, msg_str.clone()))?;
+                                }
+                            }
                         }
 
                         _ => {
