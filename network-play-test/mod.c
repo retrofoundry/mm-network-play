@@ -1,7 +1,7 @@
 #include "modding.h"
 #include "global.h"
 #include "recomputils.h"
-#include "z_remote_player.h"
+#include "string.h"
 
 // MARK: - Imports
 
@@ -9,6 +9,7 @@ RECOMP_IMPORT("mm_network_play", void NP_Init());
 RECOMP_IMPORT("mm_network_play", u8 NP_Connect(const char* host));
 RECOMP_IMPORT("mm_network_play", u8 NP_JoinSession(const char* session));
 RECOMP_IMPORT("mm_network_play", u8 NP_LeaveSession());
+RECOMP_IMPORT("mm_network_play", const char* NP_GetActorNetworkId(Actor *actor));
 RECOMP_IMPORT("mm_network_play", u32 NP_GetRemotePlayerIDs(u32 maxPlayers, char* idsBuffer, u32 idBufferSize));
 RECOMP_IMPORT("mm_network_play", u32 NP_GetRemotePlayerData(const char* playerID, void* dataBuffer));
 
@@ -21,19 +22,6 @@ RECOMP_IMPORT("ProxyMM_CustomActor", s16 CustomActor_Register(ActorProfile* prof
 // MARK: - Forward Declarations
 
 void remote_actors_update(PlayState* play);
-
-// MARK: Structs
-
-// Direct Copy from mm_network_play (can we export this somehow?)
-typedef struct {
-    s8 currentBoots;
-    s8 currentShield;
-    u8 _padding[2]; // Add padding for alignment
-    Vec3s jointTable[24]; // Might need to increase this in the future
-    Vec3s upperLimbRot;
-    Vec3s shapeRotation;
-    Vec3f worldPosition;
-} PlayerSyncData;
 
 // MARK: - Custom Actors
 
@@ -125,56 +113,49 @@ void remote_actors_update(PlayState* play) {
     for (u32 i = 0; i < remotePlayerCount; i++) {
         // 1. Check if player already has an actor
         bool remoteActorAlreadyCreated = false;
-        Actor* actor = play->actorCtx.actorLists[ACTORCAT_NPC].first; // id needs to be updated
+        Actor* actor = play->actorCtx.actorLists[ACTORCAT_PLAYER].first;
 
         // Find actor with given ID
         while (actor != NULL) {
             if (actor->id == ACTOR_REMOTE_PLAYER) {
-                RemotePlayer* remote = (RemotePlayer*)actor;
+                const char* actorNetworkId = NP_GetActorNetworkId(actor);
+                const char* playerId = remotePlayerIds[i];
 
-                // Check if this is the same player by ID via extension data?
-                // If we find it then break so we can complete this part
+                if (actorNetworkId != NULL && strcmp(actorNetworkId, playerId) == 0) {
+                    remoteActorAlreadyCreated = true;
+                    break;
+                }
             }
+
             actor = actor->next;
         }
 
         // 2. If actor not found, create new actor
         if (!remoteActorAlreadyCreated) {
-            PlayerSyncData playerData;
             const char* playerId = remotePlayerIds[i];
-            if (NP_GetRemotePlayerData(playerId, &playerData)) {
-                // 1. Spawn Actor
-                // 2. Call NP_SyncActor with actor and the uuid
-                // 3. Let the sync engine handle the rest
-
-                // This is just for debugging, we don't care about positions here.
-                recomp_printf("Remote player %d ID: %s is at position (%f, %f, %f)\n", i, playerId, playerData.worldPosition.x, playerData.worldPosition.y, playerData.worldPosition.z);
-            }
+            actor = Actor_SpawnAsChildAndCutscene(&play->actorCtx, play, ACTOR_REMOTE_PLAYER, -9999.0f, -9999.0f, -9999.0f, 0, 0, 0, 0, 0, 0, 0);
+            NP_SyncActor(actor, playerId);
         }
     }
 
     // Check for players that no longer exist and remove their actors
-    Actor* actor = play->actorCtx.actorLists[ACTORCAT_NPC].first; // id needs to be updated
+    Actor* actor = play->actorCtx.actorLists[ACTORCAT_PLAYER].first;
     while (actor != NULL) {
         Actor* next = actor->next; // Save next pointer as we may delete this actor
         if (actor->id == ACTOR_REMOTE_PLAYER) {
-            RemotePlayer* remote = (RemotePlayer*)actor;
-            // 1. Grab ID via extension data
-            // 2. Check if ID exists in remotePlayerIds array
-            // 3. If not, remove actor
-
+            const char* actorNetworkId = NP_GetActorNetworkId(actor);
             bool stillExists = false;
 
             for (u32 i = 0; i < remotePlayerCount; i++) {
-                // if (strcmp(remote->player_id, remotePlayerIds[i]) == 0) {
-                //     stillExists = true;
-                //     break;
-                // }
+                if (strcmp(actorNetworkId, remotePlayerIds[i]) == 0) {
+                    stillExists = true;
+                    break;
+                }
             }
 
             if (!stillExists) {
                 Actor_Kill(actor);
-                // recomp_printf("Removed remote player %s\n", remote->player_id);
+                recomp_printf("Removed remote player %s\n", actorNetworkId);
             }
         }
 
