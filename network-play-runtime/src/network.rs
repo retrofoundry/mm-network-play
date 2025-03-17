@@ -33,7 +33,7 @@ pub struct NetworkPlayModule {
     player_id: String,
     current_session_id: Option<String>,
     session_members: Vec<String>,
-    remote_players: HashMap<String, RemotePlayerData>,
+    pub remote_players: HashMap<String, RemotePlayerData>,
 }
 
 impl NetworkPlayModule {
@@ -232,25 +232,25 @@ fn process_network_message(message: &str) -> Result<()> {
 
         // Handle player_sync event - updates player data
         "player_sync" => {
-            if network_msg.player_id != module.player_id {
-                // Only store data from other players, not ourself
-                if let Ok(player_data) =
-                    serde_json::from_value::<PlayerData>(network_msg.data.clone())
-                {
-                    let remote_data = RemotePlayerData {
-                        player_id: network_msg.player_id.clone(),
-                        data: player_data,
-                        last_update: Instant::now(),
-                    };
+            // TODO: Don't send player their own data
+            // if network_msg.player_id != module.player_id {
+            // Only store data from other players, not ourself
+            if let Ok(player_data) = serde_json::from_value::<PlayerData>(network_msg.data.clone())
+            {
+                let remote_data = RemotePlayerData {
+                    player_id: network_msg.player_id.clone(),
+                    data: player_data,
+                    last_update: Instant::now(),
+                };
 
-                    // Store the remote player data
-                    module
-                        .remote_players
-                        .insert(network_msg.player_id.clone(), remote_data);
+                // Store the remote player data
+                module
+                    .remote_players
+                    .insert(network_msg.player_id.clone(), remote_data);
 
-                    log::debug!("Received player sync from {}", network_msg.player_id);
-                }
+                log::debug!("Received player sync from {}", network_msg.player_id);
             }
+            // }
         }
 
         _ => {

@@ -43,6 +43,8 @@ native_libraries = [
         "NetworkPlayJoinSession",
         "NetworkPlayLeaveSession",
         "NetworkPlaySendPlayerSync",
+        "NetworkPlayGetRemotePlayerIDs",
+        "NetworkPlayGetRemotePlayerData",
     ] },
 ]
 

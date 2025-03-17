@@ -10,7 +10,6 @@
 #define MAX_SYNCED_ACTORS 32
 typedef struct {
     Actor* actorPtr;      // Pointer to the actor instance
-    u32 syncFlags;       // Which properties to sync for this actor
 } SyncedActor;
 
 static SyncedActor syncedActors[MAX_SYNCED_ACTORS];
@@ -31,7 +30,8 @@ static SyncedActor* findSyncedActor(Actor* actor) {
 typedef struct {
     s8 currentBoots;
     s8 currentShield;
-    Vec3s jointTable[24]; // Array of Vec3s
+    u8 _padding[2]; // Add padding for alignment
+    Vec3s jointTable[24]; // Might need to increase this in the future
     Vec3s upperLimbRot;
     Vec3s shapeRotation;
     Vec3f worldPosition;
@@ -44,6 +44,8 @@ RECOMP_IMPORT(".", u8 NetworkPlayConnect(const char* host));
 RECOMP_IMPORT(".", u8 NetworkPlayJoinSession(const char* session));
 RECOMP_IMPORT(".", u8 NetworkPlayLeaveSession());
 RECOMP_IMPORT(".", void NetworkPlaySendPlayerSync(PlayerSyncData* data));
+RECOMP_IMPORT(".", u32 NetworkPlayGetRemotePlayerIDs(u32 maxPlayers, char* idsBuffer, u32 idBufferSize));
+RECOMP_IMPORT(".", u32 NetworkPlayGetRemotePlayerData(const char* player_id, PlayerSyncData* data));
 
 // MARK: - Events
 
@@ -79,6 +81,13 @@ void on_actor_update(PlayState* play, Actor* actor) {
             //     syncData.worldPosition.x, syncData.worldPosition.y, syncData.worldPosition.z);
         } else {
             // Other actor sync
+            // 1. Let's grab the player id from the extensions.
+            // 2. Request stored data from the dylib
+            // 3. Set the properties on the actor
+
+            // PlayerSyncData playerData;
+            // return NetworkPlayGetRemotePlayerData(playerID, dataBuffer);
+
             // recomp_printf("Syncing actor %u: pos=%f,%f,%f\n",
             //     actor->id, actor->world.pos.x, actor->world.pos.y, actor->world.pos.z);
         }
@@ -106,7 +115,7 @@ RECOMP_EXPORT u8 NP_LeaveSession() {
 
 // MARK: - Syncing
 
-RECOMP_EXPORT void NP_SyncActor(Actor* actor, u32 syncFlags) {
+RECOMP_EXPORT void NP_SyncActor(Actor* actor) {
     recomp_printf("Syncing actor %u in room %u\n", actor->id, actor->room);
 
     if (actor == NULL) {
@@ -117,16 +126,12 @@ RECOMP_EXPORT void NP_SyncActor(Actor* actor, u32 syncFlags) {
     // Check if actor is already synced
     SyncedActor* existing = findSyncedActor(actor);
     if (existing != NULL) {
-        // Update sync flags for existing actor
-        existing->syncFlags = syncFlags;
-        recomp_printf("Updated sync flags for actor %u\n", actor->id);
         return;
     }
 
     // Add to whitelist if there's space
     if (syncedActorCount < MAX_SYNCED_ACTORS) {
         syncedActors[syncedActorCount].actorPtr = actor;
-        syncedActors[syncedActorCount].syncFlags = syncFlags;
         syncedActorCount++;
 
         if (actor->id == 0) {
@@ -137,6 +142,14 @@ RECOMP_EXPORT void NP_SyncActor(Actor* actor, u32 syncFlags) {
     } else {
         recomp_printf("Cannot sync more actors: whitelist full\n");
     }
+}
+
+RECOMP_EXPORT u32 NP_GetRemotePlayerIDs(u32 maxPlayers, char* idsBuffer, u32 idBufferSize) {
+    return NetworkPlayGetRemotePlayerIDs(maxPlayers, idsBuffer, idBufferSize);
+}
+
+RECOMP_EXPORT u32 NP_GetRemotePlayerData(const char *playerID, void* dataBuffer) {
+    return NetworkPlayGetRemotePlayerData(playerID, dataBuffer);
 }
 
 // MARK: Actor Extensions
@@ -156,11 +169,3 @@ RECOMP_EXPORT ActorExtensionId NP_ExtendActorSynced(s16 actor_id, u32 size) {
 RECOMP_EXPORT void* NP_GetExtendedActorSyncedData(Actor* actor, ActorExtensionId extension) {
     return z64recomp_get_extended_actor_data(actor, extension);
 }
-
-// Sync flags for different actor properties
-#define NP_SYNC_POSITION  (1 << 0)
-#define NP_SYNC_ROTATION  (1 << 1)
-#define NP_SYNC_VELOCITY  (1 << 2)
-#define NP_SYNC_SCALE     (1 << 3)
-#define NP_SYNC_FLAGS     (1 << 4)
-#define NP_SYNC_ALL       (NP_SYNC_POSITION | NP_SYNC_ROTATION | NP_SYNC_VELOCITY | NP_SYNC_SCALE | NP_SYNC_FLAGS)
