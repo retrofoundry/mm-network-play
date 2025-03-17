@@ -164,11 +164,11 @@ pub extern "C" fn NetworkPlayLeaveSession(_rdram: *mut u8, ctx: *mut RecompConte
 #[no_mangle]
 pub extern "C" fn NetworkPlaySendPlayerSync(rdram: *mut u8, ctx: *mut RecompContext) {
     execute_safely(ctx, "NetworkPlaySendPlayerSync", |ctx| {
-        let player_data_ptr = unsafe { ctx.get_arg_ptr::<PlayerData>(rdram, 0) };
-        let player_data = unsafe { &*player_data_ptr };
+        let addr = ctx.get_arg_u64(0);
+        let player_data = unsafe { PlayerData::read_from_mem(ctx, rdram, addr) };
 
         let result = with_network_play_mut(
-            |module| match module.send_player_sync(player_data) {
+            |module| match module.send_player_sync(&player_data) {
                 Ok(_) => 1i32,
                 Err(e) => {
                     log::error!("Failed to send player sync: {}", e);

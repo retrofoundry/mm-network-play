@@ -124,7 +124,8 @@ void on_play_main(PlayState* play) {
                             Math_Vec3s_Copy(&actor->shape.rot, &remote_data.shapeRotation);
 
                             // let's offset the position by just a bit on the x, since we're currently tracking ourselves
-                            remote_data.worldPosition.x += 0.1f;
+                            remote_data.worldPosition.x += 30.0f;
+                            remote_data.worldPosition.z += 30.0f;
                             Math_Vec3f_Copy(&actor->world.pos, &remote_data.worldPosition);
 
                             // For player actors, update more data
