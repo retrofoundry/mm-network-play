@@ -3,7 +3,7 @@
 A multiplayer networking framework for Zelda 64: Recompiled that enables Actor synchronization across different game instances.
 
 
-> [!WARNING]  
+> [!WARNING]
 > This project is still in active development and the API is subject to change. It represents an experimental implementation of networking capabilities and should be considered a work-in-progress.
 
 
@@ -101,9 +101,16 @@ The test mod demonstrates:
    Or manually copy `build/main/mm_network_play.nrm`, `build/test/mm_network_play_test.nrm`, and the compiled `build/network_play_runtime.dylib` (or `.so`/`.dll`) to your mods folder.
 
 4. Run the server:
+Using Cargo:
    ```
    cd network-server
    cargo run
    ```
+
+   Using Docker Compose:
+   ```
+   docker compose up -d
+   ```
+   This will start the network server in a detached mode, which is useful for running it in the background.
 
 5. Launch Zelda 64: Recompiled with the mods enabled.
