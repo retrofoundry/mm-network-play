@@ -36,7 +36,8 @@ u8 NS_JoinSession(const char* session);
 u8 NS_LeaveSession();
 
 // Register an actor for network synchronization
-void NS_SyncActor(Actor* actor, const char* playerID);
+// isOwnedLocally controls whether we push its data or its just a synced actor
+void NS_SyncActor(Actor* actor, const char* playerID, int isOwnedLocally);
 
 // Get the network ID for an actor (returns NULL if not registered)
 const char* NS_GetActorNetworkId(Actor *actor);
