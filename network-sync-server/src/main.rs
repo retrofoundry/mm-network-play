@@ -61,16 +61,7 @@ impl ServerState {
     }
 
     fn remove_connection(&mut self, id: &str) {
-        // If in a session, remove from that session
-        if let Some(Some(session_id)) = self.connections.get(id) {
-            if let Some(connections) = self.sessions.get_mut(session_id) {
-                connections.retain(|cid| cid != id);
-                // Clean up empty sessions
-                if connections.is_empty() {
-                    self.sessions.remove(session_id);
-                }
-            }
-        }
+        self.leave_session(id);
         self.connections.remove(id);
     }
 
@@ -95,7 +86,7 @@ impl ServerState {
     fn leave_session(&mut self, connection_id: &str) -> Option<String> {
         if let Some(Some(session_id)) = self.connections.get(connection_id) {
             let session_id = session_id.clone();
-            // Update connection
+            // Update connection to no longer be in a session
             self.connections.insert(connection_id.to_string(), None);
 
             // Remove from session
