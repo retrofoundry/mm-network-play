@@ -11,7 +11,7 @@ use crate::messages::{JoinSessionMessage, LeaveSessionMessage, NetworkMessage, P
 use crate::types::{PlayerData, RemotePlayerData};
 
 // Global singleton instances
-pub static NETWORK_PLAY: OnceLock<Arc<Mutex<NetworkPlayModule>>> = OnceLock::new();
+pub static NETWORK_PLAY: OnceLock<Arc<Mutex<NetworkSyncModule>>> = OnceLock::new();
 pub static TOKIO_RUNTIME: OnceLock<Runtime> = OnceLock::new();
 
 // Get or initialize the tokio runtime
@@ -20,14 +20,14 @@ fn get_tokio_runtime() -> &'static Runtime {
 }
 
 // Get or initialize the network play module singleton
-pub fn get_network_play() -> Arc<Mutex<NetworkPlayModule>> {
+pub fn get_network_sync() -> Arc<Mutex<NetworkSyncModule>> {
     NETWORK_PLAY
-        .get_or_init(|| Arc::new(Mutex::new(NetworkPlayModule::new())))
+        .get_or_init(|| Arc::new(Mutex::new(NetworkSyncModule::new())))
         .clone()
 }
 
 /// Minimal network play module with just what we need
-pub struct NetworkPlayModule {
+pub struct NetworkSyncModule {
     network: NetworkModule,
     connected: bool,
     pub player_id: String,
@@ -36,7 +36,7 @@ pub struct NetworkPlayModule {
     pub remote_players: HashMap<String, RemotePlayerData>,
 }
 
-impl NetworkPlayModule {
+impl NetworkSyncModule {
     pub fn new() -> Self {
         Self {
             network: NetworkModule::new(),
@@ -195,8 +195,8 @@ fn process_network_message(message: &str) -> Result<()> {
         }
     };
 
-    let network_play = get_network_play();
-    let mut module = network_play.lock().unwrap();
+    let network_sync = get_network_sync();
+    let mut module = network_sync.lock().unwrap();
 
     match network_msg.event_type.as_str() {
         // Handle welcome message - just gets our player ID

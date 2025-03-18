@@ -11,10 +11,10 @@ A multiplayer networking framework for Zelda 64: Recompiled that enables Actor s
 
 This project consists of several components that work together to provide network functionality:
 
-1. **Network Play API** (`network-play`) - An API mod that exposes networking functionality to other mods
-2. **Network Play Runtime** (`network-play-runtime`) - A Rust-based dynamic library that implements the networking logic
-3. **Network Server** (`network-server`) - A webSocket server that handles player connections and data relay
-4. **Test Mod** (`network-play-test`) - A sample implementation that demonstrates the networking functionality
+1. **Network Play API** (`network-sync`) - An API mod that exposes networking functionality to other mods
+2. **Network Play Runtime** (`network-sync-runtime`) - A Rust-based dynamic library that implements the networking logic
+3. **Network Server** (`network-sync-server`) - A webSocket server that handles player connections and data relay
+4. **Test Mod** (`network-sync-test`) - A sample implementation that demonstrates the networking functionality
 
 ## API Reference
 
@@ -81,8 +81,8 @@ The test mod demonstrates:
 
 1. Clone this repository:
    ```
-   git clone https://github.com/yourusername/mm-network-play.git
-   cd mm-network-play
+   git clone https://github.com/yourusername/mm-network-sync.git
+   cd mm-network-sync
    ```
 
 2. Build the runtime, C API mod, and test mod:
@@ -98,7 +98,7 @@ The test mod demonstrates:
    ```
    make install
    ```
-   Or manually copy `build/main/mm_network_play.nrm`, `build/test/mm_network_play_test.nrm`, and the compiled `build/network_play_runtime.dylib` (or `.so`/`.dll`) to your mods folder.
+   Or manually copy `build/main/mm_network_sync.nrm`, `build/test/mm_network_sync_test.nrm`, and the compiled `build/network_sync_runtime.dylib` (or `.so`/`.dll`) to your mods folder.
 
 4. Run the server:
 Using Cargo:

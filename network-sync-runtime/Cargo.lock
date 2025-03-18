@@ -677,7 +677,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "network-play-runtime"
+name = "network-sync-runtime"
 version = "0.1.0"
 dependencies = [
  "anyhow",
