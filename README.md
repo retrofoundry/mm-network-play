@@ -1,4 +1,4 @@
-# Network Play for Zelda 64: Recompiled
+# Network Sync API for Zelda 64: Recompiled
 
 A multiplayer networking framework for Zelda 64: Recompiled that enables Actor synchronization across different game instances.
 
@@ -11,43 +11,21 @@ A multiplayer networking framework for Zelda 64: Recompiled that enables Actor s
 
 This project consists of several components that work together to provide network functionality:
 
-1. **Network Play API** (`network-sync`) - An API mod that exposes networking functionality to other mods
-2. **Network Play Runtime** (`network-sync-runtime`) - A Rust-based dynamic library that implements the networking logic
+1. **Network Sync API** (`network-sync`) - An API mod that exposes networking functionality to other mods
+2. **Network Sync Runtime** (`network-sync-runtime`) - A Rust-based dynamic library that implements the networking logic
 3. **Network Server** (`network-sync-server`) - A webSocket server that handles player connections and data relay
 4. **Test Mod** (`network-sync-test`) - A sample implementation that demonstrates the networking functionality
 
 ## API Reference
 
-The Network Play API provides the following functions to other mods:
+See the full [API Documentation](API.md) for detailed information about available functions and data structures.
 
-### Core Functions
+The Network Play API provides functionality for:
 
-```c
-// Initialize the network play system
-void NS_Init();
-
-// Connect to a network server (returns 1 on success, 0 on failure)
-u8 NS_Connect(const char* host);
-
-// Join a multiplayer session (returns 1 on success, 0 on failure)
-u8 NS_JoinSession(const char* session);
-
-// Leave the current session (returns 1 on success, 0 on failure)
-u8 NS_LeaveSession();
-
-// Register an actor for network synchronization
-// isOwnedLocally controls whether we push its data or its just a synced actor
-void NS_SyncActor(Actor* actor, const char* playerID, int isOwnedLocally);
-
-// Get the network ID for an actor (returns NULL if not registered)
-const char* NS_GetActorNetworkId(Actor *actor);
-
-// Get list of remote player IDs (returns count of players)
-u32 NS_GetRemotePlayerIDs(u32 maxPlayers, char* idsBuffer, u32 idBufferSize);
-
-// Get data for a specific remote player (returns 1 on success, 0 on failure)
-u32 NS_GetRemotePlayerData(const char* playerID, void* dataBuffer);
-```
+- Connecting to network servers
+- Joining and leaving multiplayer sessions
+- Synchronizing actor data across game instances
+- Retrieving information about other players in a session
 
 ### Architecture
 
