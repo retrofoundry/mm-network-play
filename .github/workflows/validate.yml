@@ -125,4 +125,3 @@ jobs:
             build/main/mm_network_play.nrm
             build/network_play_runtime${{ matrix.lib-extension }}
           if-no-files-found: error
-          root: build
