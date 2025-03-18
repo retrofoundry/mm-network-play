@@ -1,7 +1,7 @@
 services:
   network-server:
     build:
-      context: ./network-server
+      context: ./network-sync-server
       dockerfile: Dockerfile
       args:
         BUILDKIT_INLINE_CACHE: 0

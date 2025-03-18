@@ -15,10 +15,10 @@ RUN apt-get update && apt-get install -y libssl-dev && rm -rf /var/lib/apt/lists
 
 WORKDIR /app
 # Copy the compiled binary from the builder stage
-COPY --from=builder /usr/src/app/target/release/network-server .
+COPY --from=builder /usr/src/app/target/release/network-sync-server .
 
 # Expose the websocket port
 EXPOSE 8080
 
 # Command to run the server
-CMD ["./network-server", "--port", "8080"]
+CMD ["./network-sync-server", "--port", "8080"]
