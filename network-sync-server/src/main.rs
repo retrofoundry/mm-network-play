@@ -337,5 +337,46 @@ async fn handle_connection(
     // Cancel the forward task when the connection closes
     forward_task.abort();
 
+    // Notify about disconnection
+    let state_clone = Arc::clone(&state);
+    let session_id_opt = {
+        let state = state.lock().unwrap();
+        state
+            .connections
+            .get(&connection_id)
+            .and_then(|s| s.clone())
+    };
+
+    if let Some(session_id) = session_id_opt {
+        let members = {
+            let state = state_clone.lock().unwrap();
+            state
+                .get_session_members(&session_id)
+                .into_iter()
+                .filter(|id| id != &connection_id)
+                .collect::<Vec<_>>()
+        };
+
+        if !members.is_empty() {
+            // Create disconnection message with updated member list
+            let disconnect_msg = ServerMessage {
+                event_type: "session_members".to_string(),
+                player_id: connection_id.clone(),
+                data: serde_json::json!({
+                    "session_id": session_id,
+                    "members": members,
+                }),
+            };
+
+            let msg_str = serde_json::to_string(&disconnect_msg)?;
+
+            // Broadcast to remaining members
+            log::info!("Broadcasting disconnection message to remaining members");
+            for member in members {
+                let _ = tx.send((member, msg_str.clone()));
+            }
+        }
+    }
+
     Ok(())
 }

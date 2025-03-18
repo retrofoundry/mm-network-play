@@ -139,6 +139,7 @@ void remote_actors_update(PlayState* play) {
         // 2. If actor not found, create new actor
         if (!remoteActorAlreadyCreated) {
             const char* playerId = remotePlayerIds[i];
+            recomp_printf("Creating actor for player %s\n", playerId);
             actor = Actor_SpawnAsChildAndCutscene(&play->actorCtx, play, ACTOR_REMOTE_PLAYER, -9999.0f, -9999.0f, -9999.0f, 0, 0, 0, 0, 0, 0, 0);
             NS_SyncActor(actor, playerId);
         }
@@ -150,21 +151,26 @@ void remote_actors_update(PlayState* play) {
         Actor* next = actor->next; // Save next pointer as we may delete this actor
         if (actor->id == ACTOR_REMOTE_PLAYER) {
             const char* actorNetworkId = NS_GetActorNetworkId(actor);
-            bool stillExists = false;
+            if (actorNetworkId == NULL) {
+                // If we can't get the ID, the actor is in a bad state and should be removed
+                Actor_Kill(actor);
+                recomp_printf("Removed remote player with NULL ID\n");
+            } else {
+                bool stillExists = false;
+                for (u32 i = 0; i < remotePlayerCount; i++) {
+                    // Use strcmp safely and ensure it returns 0 (strings are equal)
+                    if (strcmp(actorNetworkId, remotePlayerIds[i]) == 0) {
+                        stillExists = true;
+                        break;
+                    }
+                }
 
-            for (u32 i = 0; i < remotePlayerCount; i++) {
-                if (strcmp(actorNetworkId, remotePlayerIds[i]) == 0) {
-                    stillExists = true;
-                    break;
+                if (!stillExists) {
+                    Actor_Kill(actor);
+                    recomp_printf("Removed remote player %s\n", actorNetworkId);
                 }
             }
-
-            if (!stillExists) {
-                Actor_Kill(actor);
-                recomp_printf("Removed remote player %s\n", actorNetworkId);
-            }
         }
-
         actor = next;
     }
 }

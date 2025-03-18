@@ -88,9 +88,6 @@ void on_actor_update(PlayState* play, Actor* actor) {
 
 RECOMP_CALLBACK("*", recomp_on_play_main)
 void on_play_main(PlayState* play) {
-    //
-    // Actor* actor = play->actorCtx.actorLists[ACTORCAT_NPC].first;
-
     PlayerSyncData remote_data;
 
     char ids_buffer[MAX_SYNCED_ACTORS * 64];
