@@ -98,16 +98,16 @@ jobs:
 
       - name: Build project (Linux)
         if: runner.os == 'Linux'
-        run: make
+        run: make release
 
       - name: Build project (Windows)
         if: runner.os == 'Windows'
-        run: make SKIP_RUST=1
+        run: make release SKIP_RUST=1
         shell: pwsh
 
       - name: Build project (macOS)
         if: runner.os == 'macOS'
-        run: CC=$(pkgx +llvm.org which clang) LD=$(pkgx +llvm.org which ld.lld) pkgx make
+        run: CC=$(pkgx +llvm.org which clang) LD=$(pkgx +llvm.org which ld.lld) pkgx make release
 
       - name: Build DLL (Windows)
         if: runner.os == 'Windows'

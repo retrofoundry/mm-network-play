@@ -4,6 +4,7 @@ TEST_MOD_NAME := mm_network_play_test
 DYLIB_DIR := network-play-runtime
 DYLIB_BASE_NAME := network_play_runtime
 SKIP_RUST ?= 0
+DEBUG ?= 1
 
 # Allow the user to specify the compiler and linker on macOS
 # as Apple Clang does not support MIPS architecture
@@ -31,6 +32,15 @@ DYLIB_TARGET_NAME := $(DYLIB_BASE_NAME)$(DYLIB_EXT)
 MOD_TOOL := ./RecompModTool
 SYMS_PATH := deps/Zelda64RecompSyms/mm.us.rev1.syms.toml
 
+# Set build type based on DEBUG flag
+ifeq ($(DEBUG),1)
+    CPPFLAGS_EXTRA := -D_DEBUG
+    CARGO_PROFILE := debug
+else
+    CPPFLAGS_EXTRA := -DNDEBUG
+    CARGO_PROFILE := release
+endif
+
 # Main mod targets
 MAIN_TARGET  := $(BUILD_DIR)/main/mod.elf
 MAIN_NRM_TARGET := $(BUILD_DIR)/$(MAIN_MOD_NAME).nrm
@@ -55,7 +65,8 @@ CFLAGS   := -target mips -mips2 -mabi=32 -O2 -G0 -mno-abicalls -mno-odd-spreg -m
             -fomit-frame-pointer -ffast-math -fno-unsafe-math-optimizations -fno-builtin-memset \
             -Wall -Wextra -Wno-incompatible-library-redeclaration -Wno-unused-parameter -Wno-unknown-pragmas -Wno-unused-variable \
             -Wno-missing-braces -Wno-unsupported-floating-point-opt -Werror=section
-CPPFLAGS := -nostdinc -D_LANGUAGE_C -DMIPS -DF3DEX_GBI_2 -DF3DEX_GBI_PL -DGBI_DOWHILE -I include -I include/dummy_headers \
+CPPFLAGS := -nostdinc -D_LANGUAGE_C -DMIPS -DF3DEX_GBI_2 -DF3DEX_GBI_PL -DGBI_DOWHILE $(CPPFLAGS_EXTRA) \
+            -I include -I include/dummy_headers \
             -I deps/mm-decomp/include -I deps/mm-decomp/src -I deps/mm-decomp/extracted/n64-us -I deps/mm-decomp/include/libc
 LDFLAGS  := -nostdlib -T $(LDSCRIPT) -Map $(BUILD_DIR)/mod.map --unresolved-symbols=ignore-all --emit-relocs -e 0 --no-nmagic
 
@@ -69,9 +80,15 @@ TEST_C_SRCS := $(wildcard network-play-test/*.c network-play-test/**/*.c)
 TEST_C_OBJS := $(addprefix $(BUILD_DIR)/test/, $(TEST_C_SRCS:.c=.o))
 TEST_C_DEPS := $(addprefix $(BUILD_DIR)/test/, $(TEST_C_SRCS:.c=.d))
 
-.PHONY: all clean main test build-dylib install
+.PHONY: all clean main test release build-dylib install
 
 all: main test
+
+release:
+	$(MAKE) DEBUG=0
+
+debug:
+	$(MAKE) DEBUG=1
 
 main: $(MAIN_NRM_TARGET) $(DYLIB_TARGET)
 
@@ -102,16 +119,16 @@ $(MAIN_NRM_TARGET): $(MAIN_TARGET) | $(BUILD_DIR)
 	$(MOD_TOOL) mod.toml $(BUILD_DIR)/main
 
 # Step 3: Build the Rust dylib
-RUST_SRCS := $(shell find $(DYLIB_DIR)/src deps/gamecore/src deps/n64-recomp/src -name "*.rs" 2>/dev/null)
+RUST_SRCS := $(shell find $(DYLIB_DIR)/src deps/gamecore/src deps/n64-recomp/src deps/gamecore/src -name "*.rs" 2>/dev/null)
 CARGO_TOML := $(DYLIB_DIR)/Cargo.toml
 
 $(DYLIB_TARGET): $(RUST_SRCS) $(CARGO_TOML) | $(BUILD_DIR)
 ifeq ($(SKIP_RUST),0)
-	cd $(DYLIB_DIR) && cargo build
+	cd $(DYLIB_DIR) && cargo build $(if $(filter release,$(CARGO_PROFILE)),--release,)
 ifeq ($(OS),Windows_NT)
-	copy "$(DYLIB_DIR)\target\debug\$(DYLIB_SRC_NAME)" "$(BUILD_DIR)\$(DYLIB_TARGET_NAME)"
+	copy "$(DYLIB_DIR)\target\$(CARGO_PROFILE)\$(DYLIB_SRC_NAME)" "$(BUILD_DIR)\$(DYLIB_TARGET_NAME)"
 else
-	cp $(DYLIB_DIR)/target/debug/$(DYLIB_SRC_NAME) $(BUILD_DIR)/$(DYLIB_TARGET_NAME)
+	cp $(DYLIB_DIR)/target/$(CARGO_PROFILE)/$(DYLIB_SRC_NAME) $(BUILD_DIR)/$(DYLIB_TARGET_NAME)
 endif
 endif
 
