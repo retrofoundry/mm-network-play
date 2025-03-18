@@ -10,3 +10,5 @@ services:
       - "8080:8080"
     environment:
       - RUST_LOG=info
+    labels:
+      - "traefik.http.routers.mm-network-play-jkoz5a-11-websecure.middlewares=websocket@file"
