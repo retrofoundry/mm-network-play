@@ -50,7 +50,7 @@ RECOMP_CALLBACK("*", recomp_on_play_init)
 void on_play_init(PlayState* play) {
     if (has_connected) return;
     recomp_printf("Connecting to server...\n");
-    has_connected = NP_Connect("wss://mm-net.dcvz.io");
+    has_connected = NP_Connect(SERVER_URL);
 
     if (has_connected) {
         Notifications_Emit(
