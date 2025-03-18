@@ -24,28 +24,28 @@ The Network Play API provides the following functions to other mods:
 
 ```c
 // Initialize the network play system
-void NP_Init();
+void NS_Init();
 
 // Connect to a network server (returns 1 on success, 0 on failure)
-u8 NP_Connect(const char* host);
+u8 NS_Connect(const char* host);
 
 // Join a multiplayer session (returns 1 on success, 0 on failure)
-u8 NP_JoinSession(const char* session);
+u8 NS_JoinSession(const char* session);
 
 // Leave the current session (returns 1 on success, 0 on failure)
-u8 NP_LeaveSession();
+u8 NS_LeaveSession();
 
 // Register an actor for network synchronization
-void NP_SyncActor(Actor* actor, const char* playerID);
+void NS_SyncActor(Actor* actor, const char* playerID);
 
 // Get the network ID for an actor (returns NULL if not registered)
-const char* NP_GetActorNetworkId(Actor *actor);
+const char* NS_GetActorNetworkId(Actor *actor);
 
 // Get list of remote player IDs (returns count of players)
-u32 NP_GetRemotePlayerIDs(u32 maxPlayers, char* idsBuffer, u32 idBufferSize);
+u32 NS_GetRemotePlayerIDs(u32 maxPlayers, char* idsBuffer, u32 idBufferSize);
 
 // Get data for a specific remote player (returns 1 on success, 0 on failure)
-u32 NP_GetRemotePlayerData(const char* playerID, void* dataBuffer);
+u32 NS_GetRemotePlayerData(const char* playerID, void* dataBuffer);
 ```
 
 ### Architecture
