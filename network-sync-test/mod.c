@@ -108,14 +108,10 @@ static u32 remotePlayerCount = 0;
 
 // Checks whether we need to create or destroy actors
 void remote_actors_update(PlayState* play) {
-    recomp_printf("Updating remote player actors...\n");
-
     remotePlayerCount = NS_GetRemotePlayerIDs(MAX_REMOTE_PLAYERS, (char*)remotePlayerIds, 64);
     recomp_printf("Remote player count: %d\n", remotePlayerCount);
-    if (remotePlayerCount == 0) {
-        return;
-    }
 
+    // Create actors for new remote players (only if we have any)
     for (u32 i = 0; i < remotePlayerCount; i++) {
         // 1. Check if player already has an actor
         bool remoteActorAlreadyCreated = false;
@@ -139,6 +135,7 @@ void remote_actors_update(PlayState* play) {
         // 2. If actor not found, create new actor
         if (!remoteActorAlreadyCreated) {
             const char* playerId = remotePlayerIds[i];
+            recomp_printf("Creating actor for player %s\n", playerId);
             actor = Actor_SpawnAsChildAndCutscene(&play->actorCtx, play, ACTOR_REMOTE_PLAYER, -9999.0f, -9999.0f, -9999.0f, 0, 0, 0, 0, 0, 0, 0);
             NS_SyncActor(actor, playerId);
         }
@@ -148,20 +145,33 @@ void remote_actors_update(PlayState* play) {
     Actor* actor = play->actorCtx.actorLists[ACTORCAT_PLAYER].first;
     while (actor != NULL) {
         Actor* next = actor->next; // Save next pointer as we may delete this actor
+
         if (actor->id == ACTOR_REMOTE_PLAYER) {
             const char* actorNetworkId = NS_GetActorNetworkId(actor);
-            bool stillExists = false;
-
-            for (u32 i = 0; i < remotePlayerCount; i++) {
-                if (strcmp(actorNetworkId, remotePlayerIds[i]) == 0) {
-                    stillExists = true;
-                    break;
-                }
-            }
-
-            if (!stillExists) {
+            if (actorNetworkId == NULL) {
                 Actor_Kill(actor);
-                recomp_printf("Removed remote player %s\n", actorNetworkId);
+                recomp_printf("Removed remote player with NULL ID\n");
+            } else {
+                bool stillExists = false;
+
+                // Only check if there are remote players to compare against
+                if (remotePlayerCount > 0) {
+                    for (u32 i = 0; i < remotePlayerCount; i++) {
+                        if (strcmp(actorNetworkId, remotePlayerIds[i]) == 0) {
+                            stillExists = true;
+                            break;
+                        }
+                    }
+                } else {
+                    // If there are no remote players, this actor definitely doesn't exist anymore
+                    stillExists = false;
+                    recomp_printf("No remote players exist, removing actor with ID %s\n", actorNetworkId);
+                }
+
+                if (!stillExists) {
+                    Actor_Kill(actor);
+                    recomp_printf("Removed remote player %s\n", actorNetworkId);
+                }
             }
         }
 

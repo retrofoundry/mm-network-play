@@ -61,16 +61,7 @@ impl ServerState {
     }
 
     fn remove_connection(&mut self, id: &str) {
-        // If in a session, remove from that session
-        if let Some(Some(session_id)) = self.connections.get(id) {
-            if let Some(connections) = self.sessions.get_mut(session_id) {
-                connections.retain(|cid| cid != id);
-                // Clean up empty sessions
-                if connections.is_empty() {
-                    self.sessions.remove(session_id);
-                }
-            }
-        }
+        self.leave_session(id);
         self.connections.remove(id);
     }
 
@@ -95,7 +86,7 @@ impl ServerState {
     fn leave_session(&mut self, connection_id: &str) -> Option<String> {
         if let Some(Some(session_id)) = self.connections.get(connection_id) {
             let session_id = session_id.clone();
-            // Update connection
+            // Update connection to no longer be in a session
             self.connections.insert(connection_id.to_string(), None);
 
             // Remove from session
@@ -336,6 +327,47 @@ async fn handle_connection(
 
     // Cancel the forward task when the connection closes
     forward_task.abort();
+
+    // Notify about disconnection
+    let state_clone = Arc::clone(&state);
+    let session_id_opt = {
+        let state = state.lock().unwrap();
+        state
+            .connections
+            .get(&connection_id)
+            .and_then(|s| s.clone())
+    };
+
+    if let Some(session_id) = session_id_opt {
+        let members = {
+            let state = state_clone.lock().unwrap();
+            state
+                .get_session_members(&session_id)
+                .into_iter()
+                .filter(|id| id != &connection_id)
+                .collect::<Vec<_>>()
+        };
+
+        if !members.is_empty() {
+            // Create disconnection message with updated member list
+            let disconnect_msg = ServerMessage {
+                event_type: "session_members".to_string(),
+                player_id: connection_id.clone(),
+                data: serde_json::json!({
+                    "session_id": session_id,
+                    "members": members,
+                }),
+            };
+
+            let msg_str = serde_json::to_string(&disconnect_msg)?;
+
+            // Broadcast to remaining members
+            log::info!("Broadcasting disconnection message to remaining members");
+            for member in members {
+                let _ = tx.send((member, msg_str.clone()));
+            }
+        }
+    }
 
     Ok(())
 }

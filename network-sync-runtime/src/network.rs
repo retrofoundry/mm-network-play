@@ -208,9 +208,6 @@ fn process_network_message(message: &str) -> Result<()> {
         // Handle session_members event - updates who's in our session
         "session_members" => {
             if let Some(session_id) = network_msg.data.get("session_id").and_then(|v| v.as_str()) {
-                // Update our current session ID
-                module.current_session_id = Some(session_id.to_string());
-
                 // Update the member list
                 if let Some(members) = network_msg.data.get("members").and_then(|v| v.as_array()) {
                     let session_members: Vec<String> = members
@@ -218,7 +215,18 @@ fn process_network_message(message: &str) -> Result<()> {
                         .filter_map(|v| v.as_str().map(String::from))
                         .collect();
 
-                    module.session_members = session_members;
+                    // Get current members to identify disconnected players
+                    let old_members =
+                        std::mem::replace(&mut module.session_members, session_members.clone());
+
+                    // Find any members that were removed (disconnected)
+                    for old_member in old_members {
+                        if !session_members.contains(&old_member) {
+                            // This player is no longer in the session, remove them from remote_players
+                            module.remote_players.remove(&old_member);
+                            log::info!("Player {} has disconnected", old_member);
+                        }
+                    }
 
                     log::info!(
                         "Session '{}' updated: {} members: {:?}",
