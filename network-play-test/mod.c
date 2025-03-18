@@ -3,6 +3,12 @@
 #include "recomputils.h"
 #include "string.h"
 
+#ifdef _DEBUG
+    #define SERVER_URL "ws://localhost:8080"
+#else
+    #define SERVER_URL "wss://mm-net.dcvz.io"
+#endif
+
 // MARK: - Imports
 
 RECOMP_IMPORT("mm_network_play", void NP_Init());
@@ -44,7 +50,7 @@ RECOMP_CALLBACK("*", recomp_on_play_init)
 void on_play_init(PlayState* play) {
     if (has_connected) return;
     recomp_printf("Connecting to server...\n");
-    has_connected = NP_Connect("ws://localhost:8080");
+    has_connected = NP_Connect(SERVER_URL);
 
     if (has_connected) {
         Notifications_Emit(
