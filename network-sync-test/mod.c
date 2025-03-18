@@ -11,16 +11,16 @@
 
 // MARK: - Imports
 
-RECOMP_IMPORT("mm_network_play", void NP_Init());
-RECOMP_IMPORT("mm_network_play", u8 NP_Connect(const char* host));
-RECOMP_IMPORT("mm_network_play", u8 NP_JoinSession(const char* session));
-RECOMP_IMPORT("mm_network_play", u8 NP_LeaveSession());
-RECOMP_IMPORT("mm_network_play", const char* NP_GetActorNetworkId(Actor *actor));
-RECOMP_IMPORT("mm_network_play", u32 NP_GetRemotePlayerIDs(u32 maxPlayers, char* idsBuffer, u32 idBufferSize));
-RECOMP_IMPORT("mm_network_play", u32 NP_GetRemotePlayerData(const char* playerID, void* dataBuffer));
+RECOMP_IMPORT("mm_network_sync", void NS_Init());
+RECOMP_IMPORT("mm_network_sync", u8 NS_Connect(const char* host));
+RECOMP_IMPORT("mm_network_sync", u8 NS_JoinSession(const char* session));
+RECOMP_IMPORT("mm_network_sync", u8 NS_LeaveSession());
+RECOMP_IMPORT("mm_network_sync", const char* NS_GetActorNetworkId(Actor *actor));
+RECOMP_IMPORT("mm_network_sync", u32 NS_GetRemotePlayerIDs(u32 maxPlayers, char* idsBuffer, u32 idBufferSize));
+RECOMP_IMPORT("mm_network_sync", u32 NS_GetRemotePlayerData(const char* playerID, void* dataBuffer));
 
-RECOMP_IMPORT("mm_network_play", void NP_SyncActor(Actor* actor, const char* playerID));
-RECOMP_IMPORT("mm_network_play", void NP_ExtendActorSynced(s16 actor_id, u32 size));
+RECOMP_IMPORT("mm_network_sync", void NS_SyncActor(Actor* actor, const char* playerID));
+RECOMP_IMPORT("mm_network_sync", void NS_ExtendActorSynced(s16 actor_id, u32 size));
 
 RECOMP_IMPORT("ProxyMM_Notifications", void Notifications_Emit(const char* prefix, const char* msg, const char* suffix));
 RECOMP_IMPORT("ProxyMM_CustomActor", s16 CustomActor_Register(ActorProfile* profile));
@@ -42,7 +42,7 @@ RECOMP_CALLBACK("*", recomp_on_init)
 void init_runtime() {
     has_connected = 0;
 
-    NP_Init();
+    NS_Init();
     ACTOR_REMOTE_PLAYER = CustomActor_Register(&RemotePlayer_InitVars);
 }
 
@@ -50,7 +50,7 @@ RECOMP_CALLBACK("*", recomp_on_play_init)
 void on_play_init(PlayState* play) {
     if (has_connected) return;
     recomp_printf("Connecting to server...\n");
-    has_connected = NP_Connect(SERVER_URL);
+    has_connected = NS_Connect(SERVER_URL);
 
     if (has_connected) {
         Notifications_Emit(
@@ -67,7 +67,7 @@ void on_play_init(PlayState* play) {
         return;
     }
 
-    u8 result = NP_JoinSession("test");
+    u8 result = NS_JoinSession("test");
     if (result) {
         Notifications_Emit(
             "", // Prefix (Purple)
@@ -97,7 +97,7 @@ void on_play_main(PlayState* play) {
 RECOMP_HOOK("Player_Init")
 void OnPlayerInit(Actor* thisx, PlayState* play) {
     recomp_printf("Player initialized\n");
-    NP_SyncActor(thisx, NULL);
+    NS_SyncActor(thisx, NULL);
 }
 
 // MARK: - Remote Player Actor Processing
@@ -110,7 +110,7 @@ static u32 remotePlayerCount = 0;
 void remote_actors_update(PlayState* play) {
     recomp_printf("Updating remote player actors...\n");
 
-    remotePlayerCount = NP_GetRemotePlayerIDs(MAX_REMOTE_PLAYERS, (char*)remotePlayerIds, 64);
+    remotePlayerCount = NS_GetRemotePlayerIDs(MAX_REMOTE_PLAYERS, (char*)remotePlayerIds, 64);
     recomp_printf("Remote player count: %d\n", remotePlayerCount);
     if (remotePlayerCount == 0) {
         return;
@@ -124,7 +124,7 @@ void remote_actors_update(PlayState* play) {
         // Find actor with given ID
         while (actor != NULL) {
             if (actor->id == ACTOR_REMOTE_PLAYER) {
-                const char* actorNetworkId = NP_GetActorNetworkId(actor);
+                const char* actorNetworkId = NS_GetActorNetworkId(actor);
                 const char* playerId = remotePlayerIds[i];
 
                 if (actorNetworkId != NULL && strcmp(actorNetworkId, playerId) == 0) {
@@ -140,7 +140,7 @@ void remote_actors_update(PlayState* play) {
         if (!remoteActorAlreadyCreated) {
             const char* playerId = remotePlayerIds[i];
             actor = Actor_SpawnAsChildAndCutscene(&play->actorCtx, play, ACTOR_REMOTE_PLAYER, -9999.0f, -9999.0f, -9999.0f, 0, 0, 0, 0, 0, 0, 0);
-            NP_SyncActor(actor, playerId);
+            NS_SyncActor(actor, playerId);
         }
     }
 
@@ -149,7 +149,7 @@ void remote_actors_update(PlayState* play) {
     while (actor != NULL) {
         Actor* next = actor->next; // Save next pointer as we may delete this actor
         if (actor->id == ACTOR_REMOTE_PLAYER) {
-            const char* actorNetworkId = NP_GetActorNetworkId(actor);
+            const char* actorNetworkId = NS_GetActorNetworkId(actor);
             bool stillExists = false;
 
             for (u32 i = 0; i < remotePlayerCount; i++) {

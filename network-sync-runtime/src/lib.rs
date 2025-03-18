@@ -5,10 +5,10 @@ mod utils;
 
 use env_logger::Builder;
 use n64_recomp::{N64MemoryIO, RecompContext};
-use network::get_network_play;
+use network::get_network_sync;
 use std::panic;
 use types::PlayerData;
-use utils::{execute_safely, with_network_play, with_network_play_mut};
+use utils::{execute_safely, with_network_sync, with_network_sync_mut};
 
 // C - API
 
@@ -17,7 +17,7 @@ use utils::{execute_safely, with_network_play, with_network_play_mut};
 pub static recomp_api_version: u32 = 1;
 
 #[no_mangle]
-pub extern "C" fn NetworkPlayInit(_rdram: *mut u8, _ctx: *mut RecompContext) {
+pub extern "C" fn NetworkSyncInit(_rdram: *mut u8, _ctx: *mut RecompContext) {
     // Set up a panic hook that logs panics but doesn't abort
     panic::set_hook(Box::new(|panic_info| {
         log::error!("Panic in network play module: {:?}", panic_info);
@@ -33,17 +33,17 @@ pub extern "C" fn NetworkPlayInit(_rdram: *mut u8, _ctx: *mut RecompContext) {
     builder.init();
 
     // Initialize network module at startup
-    let _ = get_network_play();
+    let _ = get_network_sync();
     log::info!("Network play module initialized");
 }
 
 #[no_mangle]
-pub extern "C" fn NetworkPlayConnect(rdram: *mut u8, ctx: *mut RecompContext) {
-    execute_safely(ctx, "NetworkPlayConnect", |ctx| {
+pub extern "C" fn NetworkSyncConnect(rdram: *mut u8, ctx: *mut RecompContext) {
+    execute_safely(ctx, "NetworkSyncConnect", |ctx| {
         let host = unsafe { ctx.get_arg_string(rdram, 0) };
         log::info!("Connecting to server: {}", host);
 
-        let result = with_network_play_mut(
+        let result = with_network_sync_mut(
             |module| match module.connect(&host) {
                 Ok(_) => {
                     log::info!("Successfully connected to {}", host);
@@ -62,11 +62,11 @@ pub extern "C" fn NetworkPlayConnect(rdram: *mut u8, ctx: *mut RecompContext) {
 }
 
 #[no_mangle]
-pub extern "C" fn NetworkPlayDisconnect(_rdram: *mut u8, ctx: *mut RecompContext) {
-    execute_safely(ctx, "NetworkPlayDisconnect", |ctx| {
+pub extern "C" fn NetworkSyncDisconnect(_rdram: *mut u8, ctx: *mut RecompContext) {
+    execute_safely(ctx, "NetworkSyncDisconnect", |ctx| {
         log::info!("Disconnecting from server");
 
-        let result = with_network_play_mut(
+        let result = with_network_sync_mut(
             |module| match module.disconnect() {
                 Ok(_) => {
                     log::info!("Successfully disconnected");
@@ -85,12 +85,12 @@ pub extern "C" fn NetworkPlayDisconnect(_rdram: *mut u8, ctx: *mut RecompContext
 }
 
 #[no_mangle]
-pub extern "C" fn NetworkPlayGetPlayerId(rdram: *mut u8, ctx: *mut RecompContext) {
-    execute_safely(ctx, "NetworkPlayGetPlayerId", |ctx| {
+pub extern "C" fn NetworkSyncGetPlayerId(rdram: *mut u8, ctx: *mut RecompContext) {
+    execute_safely(ctx, "NetworkSyncGetPlayerId", |ctx| {
         let player_id_buf = ctx.get_arg_u64(0);
         let max_len = ctx.get_arg_u32(1) as usize;
 
-        let success = with_network_play(
+        let success = with_network_sync(
             |module| {
                 if !module.player_id.is_empty() {
                     unsafe {
@@ -114,13 +114,13 @@ pub extern "C" fn NetworkPlayGetPlayerId(rdram: *mut u8, ctx: *mut RecompContext
 }
 
 #[no_mangle]
-pub extern "C" fn NetworkPlayJoinSession(rdram: *mut u8, ctx: *mut RecompContext) {
-    execute_safely(ctx, "NetworkPlayJoinSession", |ctx| {
+pub extern "C" fn NetworkSyncJoinSession(rdram: *mut u8, ctx: *mut RecompContext) {
+    execute_safely(ctx, "NetworkSyncJoinSession", |ctx| {
         let session_id = unsafe { ctx.get_arg_string(rdram, 0) };
 
         log::info!("Joining session {}", session_id);
 
-        let result = with_network_play_mut(
+        let result = with_network_sync_mut(
             |module| match module.join_session(&session_id) {
                 Ok(_) => {
                     log::info!("Successfully joined session {}", session_id);
@@ -139,11 +139,11 @@ pub extern "C" fn NetworkPlayJoinSession(rdram: *mut u8, ctx: *mut RecompContext
 }
 
 #[no_mangle]
-pub extern "C" fn NetworkPlayLeaveSession(_rdram: *mut u8, ctx: *mut RecompContext) {
-    execute_safely(ctx, "NetworkPlayLeaveSession", |ctx| {
+pub extern "C" fn NetworkSyncLeaveSession(_rdram: *mut u8, ctx: *mut RecompContext) {
+    execute_safely(ctx, "NetworkSyncLeaveSession", |ctx| {
         log::info!("Leaving current session");
 
-        let result = with_network_play_mut(
+        let result = with_network_sync_mut(
             |module| match module.leave_session() {
                 Ok(_) => {
                     log::info!("Successfully left session");
@@ -162,12 +162,12 @@ pub extern "C" fn NetworkPlayLeaveSession(_rdram: *mut u8, ctx: *mut RecompConte
 }
 
 #[no_mangle]
-pub extern "C" fn NetworkPlaySendPlayerSync(rdram: *mut u8, ctx: *mut RecompContext) {
-    execute_safely(ctx, "NetworkPlaySendPlayerSync", |ctx| {
+pub extern "C" fn NetworkSyncSendPlayerSync(rdram: *mut u8, ctx: *mut RecompContext) {
+    execute_safely(ctx, "NetworkSyncSendPlayerSync", |ctx| {
         let addr = ctx.get_arg_u64(0);
         let player_data = unsafe { PlayerData::read_from_mem(ctx, rdram, addr) };
 
-        let result = with_network_play_mut(
+        let result = with_network_sync_mut(
             |module| match module.send_player_sync(&player_data) {
                 Ok(_) => 1i32,
                 Err(e) => {
@@ -183,13 +183,13 @@ pub extern "C" fn NetworkPlaySendPlayerSync(rdram: *mut u8, ctx: *mut RecompCont
 }
 
 #[no_mangle]
-pub extern "C" fn NetworkPlayGetRemotePlayerIDs(rdram: *mut u8, ctx: *mut RecompContext) {
-    execute_safely(ctx, "NetworkPlayGetRemotePlayerIDs", |ctx| {
+pub extern "C" fn NetworkSyncGetRemotePlayerIDs(rdram: *mut u8, ctx: *mut RecompContext) {
+    execute_safely(ctx, "NetworkSyncGetRemotePlayerIDs", |ctx| {
         let max_players = ctx.get_arg_u32(0);
         let ids_buffer = ctx.get_arg_u64(1); // Get the virtual address
         let id_buffer_size = ctx.get_arg_u32(2);
 
-        let count = with_network_play(
+        let count = with_network_sync(
             |module| {
                 let mut count = 0;
 
@@ -218,12 +218,12 @@ pub extern "C" fn NetworkPlayGetRemotePlayerIDs(rdram: *mut u8, ctx: *mut Recomp
 }
 
 #[no_mangle]
-pub extern "C" fn NetworkPlayGetRemotePlayerData(rdram: *mut u8, ctx: *mut RecompContext) {
-    execute_safely(ctx, "NetworkPlayGetRemotePlayerData", |ctx| {
+pub extern "C" fn NetworkSyncGetRemotePlayerData(rdram: *mut u8, ctx: *mut RecompContext) {
+    execute_safely(ctx, "NetworkSyncGetRemotePlayerData", |ctx| {
         let player_id = unsafe { ctx.get_arg_string(rdram, 0) };
         let data_buffer_addr = ctx.get_arg_u64(1);
 
-        let success = with_network_play(
+        let success = with_network_sync(
             |module| {
                 if let Some(remote_player) = module.remote_players.get(&player_id) {
                     unsafe {

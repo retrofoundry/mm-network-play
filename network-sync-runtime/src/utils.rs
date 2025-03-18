@@ -1,7 +1,7 @@
 use n64_recomp::RecompContext;
 use std::panic;
 
-use crate::network::{NetworkPlayModule, NETWORK_PLAY};
+use crate::network::{NetworkSyncModule, NETWORK_PLAY};
 
 /// Helper function to safely execute code that might panic
 pub fn execute_safely<F>(ctx: *mut RecompContext, func_name: &str, f: F)
@@ -22,12 +22,12 @@ where
     }
 }
 
-pub fn with_network_play_mut<F, R>(f: F, default: R) -> R
+pub fn with_network_sync_mut<F, R>(f: F, default: R) -> R
 where
-    F: FnOnce(&mut NetworkPlayModule) -> R,
+    F: FnOnce(&mut NetworkSyncModule) -> R,
 {
     match NETWORK_PLAY.get() {
-        Some(network_play) => match network_play.lock() {
+        Some(network_sync) => match network_sync.lock() {
             Ok(mut module) => f(&mut module),
             Err(e) => {
                 log::error!("Failed to lock network play module: {}", e);
@@ -41,12 +41,12 @@ where
     }
 }
 
-pub fn with_network_play<F, R>(f: F, default: R) -> R
+pub fn with_network_sync<F, R>(f: F, default: R) -> R
 where
-    F: FnOnce(&NetworkPlayModule) -> R,
+    F: FnOnce(&NetworkSyncModule) -> R,
 {
     match NETWORK_PLAY.get() {
-        Some(network_play) => match network_play.lock() {
+        Some(network_sync) => match network_sync.lock() {
             Ok(module) => f(&module),
             Err(e) => {
                 log::error!("Failed to lock network play module: {}", e);

@@ -1,5 +1,5 @@
 [package]
-name = "network-server"
+name = "network-sync-server"
 version = "0.1.0"
 edition = "2021"
 

@@ -1,8 +1,8 @@
 BUILD_DIR := build
-MAIN_MOD_NAME := mm_network_play
-TEST_MOD_NAME := mm_network_play_test
-DYLIB_DIR := network-play-runtime
-DYLIB_BASE_NAME := network_play_runtime
+MAIN_MOD_NAME := mm_network_sync
+TEST_MOD_NAME := mm_network_sync_test
+DYLIB_DIR := network-sync-runtime
+DYLIB_BASE_NAME := network_sync_runtime
 SKIP_RUST ?= 0
 DEBUG ?= 1
 
@@ -71,12 +71,12 @@ CPPFLAGS := -nostdinc -D_LANGUAGE_C -DMIPS -DF3DEX_GBI_2 -DF3DEX_GBI_PL -DGBI_DO
 LDFLAGS  := -nostdlib -T $(LDSCRIPT) -Map $(BUILD_DIR)/mod.map --unresolved-symbols=ignore-all --emit-relocs -e 0 --no-nmagic
 
 # Main mod files
-MAIN_C_SRCS := $(wildcard network-play/*.c)
+MAIN_C_SRCS := $(wildcard network-sync/*.c)
 MAIN_C_OBJS := $(addprefix $(BUILD_DIR)/main/, $(MAIN_C_SRCS:.c=.o))
 MAIN_C_DEPS := $(addprefix $(BUILD_DIR)/main/, $(MAIN_C_SRCS:.c=.d))
 
 # Test mod files
-TEST_C_SRCS := $(wildcard network-play-test/*.c network-play-test/**/*.c)
+TEST_C_SRCS := $(wildcard network-sync-test/*.c network-sync-test/**/*.c)
 TEST_C_OBJS := $(addprefix $(BUILD_DIR)/test/, $(TEST_C_SRCS:.c=.o))
 TEST_C_DEPS := $(addprefix $(BUILD_DIR)/test/, $(TEST_C_SRCS:.c=.d))
 
@@ -138,19 +138,19 @@ $(TEST_TARGET): $(TEST_C_OBJS) $(LDSCRIPT) | $(BUILD_DIR)/test
 
 # Step 5: Run RecompModTool to generate test .nrm file
 $(TEST_NRM_TARGET): $(TEST_TARGET) | $(BUILD_DIR)/test
-	$(MOD_TOOL) network-play-test/test.toml $(BUILD_DIR)/test
+	$(MOD_TOOL) network-sync-test/test.toml $(BUILD_DIR)/test
 
-$(BUILD_DIR) $(BUILD_DIR)/main $(BUILD_DIR)/main/network-play $(BUILD_DIR)/test $(BUILD_DIR)/test/network-play-test:
+$(BUILD_DIR) $(BUILD_DIR)/main $(BUILD_DIR)/main/network-sync $(BUILD_DIR)/test $(BUILD_DIR)/test/network-sync-test:
 ifeq ($(OS),Windows_NT)
 	mkdir $(subst /,\,$@)
 else
 	mkdir -p $@
 endif
 
-$(MAIN_C_OBJS): $(BUILD_DIR)/main/%.o : %.c | $(BUILD_DIR) $(BUILD_DIR)/main $(BUILD_DIR)/main/network-play
+$(MAIN_C_OBJS): $(BUILD_DIR)/main/%.o : %.c | $(BUILD_DIR) $(BUILD_DIR)/main $(BUILD_DIR)/main/network-sync
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -MMD -MF $(@:.o=.d) -c -o $@
 
-$(TEST_C_OBJS): $(BUILD_DIR)/test/%.o : %.c | $(BUILD_DIR) $(BUILD_DIR)/test $(BUILD_DIR)/test/network-play-test
+$(TEST_C_OBJS): $(BUILD_DIR)/test/%.o : %.c | $(BUILD_DIR) $(BUILD_DIR)/test $(BUILD_DIR)/test/network-sync-test
 	$(CC) $(CFLAGS) $(CPPFLAGS) $< -MMD -MF $(@:.o=.d) -c -o $@
 
 clean:
