@@ -38,15 +38,14 @@ static NetworkSyncerData* GetActorNetworkData(Actor* actor) {
 // MARK: - Struct
 
 typedef struct {
-    Vec3s shapeRotation;
     Vec3f worldPosition;
+    Vec3s shapeRotation;
 
     // Player Actor specific properties
+    Vec3s upperLimbRot;
+    Vec3s jointTable[24];
     s8 currentBoots;
     s8 currentShield;
-    u8 _padding[2];
-    Vec3s jointTable[24];
-    Vec3s upperLimbRot;
 } PlayerSyncData;
 
 // MARK: - Imports
