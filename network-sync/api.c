@@ -19,8 +19,12 @@ static u8 gSyncedActorCategories[MAX_ACTOR_CATEGORIES] = {0};  // Bitset for cat
 
 // Structure to hold network-specific data for each actor
 typedef struct {
-    char player_id[64];    // UUID string for this actor
-    u8 is_synced;          // Flag indicating if actor is being synced
+    // UUID string for this actor
+    char player_id[64];
+    // Flag indicating if actor is being synced
+    u8 is_synced;
+    // Flag indicating whether we are in charge of pushing its data to the server
+    u8 is_owned_locally;
 } NetworkSyncerData;
 
 static NetworkSyncerData* GetActorNetworkData(Actor* actor) {
@@ -34,13 +38,15 @@ static NetworkSyncerData* GetActorNetworkData(Actor* actor) {
 // MARK: - Struct
 
 typedef struct {
-    s8 currentBoots;
-    s8 currentShield;
-    u8 _padding[2]; // Add padding for alignment
-    Vec3s jointTable[24]; // Might need to increase this in the future
-    Vec3s upperLimbRot;
     Vec3s shapeRotation;
     Vec3f worldPosition;
+
+    // Player Actor specific properties
+    s8 currentBoots;
+    s8 currentShield;
+    u8 _padding[2];
+    Vec3s jointTable[24];
+    Vec3s upperLimbRot;
 } PlayerSyncData;
 
 // MARK: - Imports
@@ -60,29 +66,30 @@ RECOMP_CALLBACK("*", recomp_after_actor_update)
 void on_actor_update(PlayState* play, Actor* actor) {
     NetworkSyncerData* netData = GetActorNetworkData(actor);
 
-    // Skip actors that aren't being synced or aren't the main player
-    if (netData == NULL || !netData->is_synced || actor->id != 0) {
+    // Skip actors that aren't being synced or aren't locally owned
+    if (netData == NULL || !netData->is_synced || !netData->is_owned_locally) {
         return;
     }
 
-    // Sync the player movement data to the server
-    Player* player = (Player*)actor;
+    // Sync general actor properties
     PlayerSyncData* syncData = recomp_alloc(sizeof(PlayerSyncData) + sizeof(Vec3s) * 23); // For 24 joints
-
-    syncData->currentBoots = player->currentBoots;
-    syncData->currentShield = player->currentShield;
-
-    // Copy each joint individually (assuming jointTable is an array of 24 Vec3s)
-    for (int i = 0; i < 24; i++) {
-        Math_Vec3s_Copy(&syncData->jointTable[i], &player->skelAnime.jointTable[i]);
-    }
-
-    Math_Vec3s_Copy(&syncData->upperLimbRot, &player->upperLimbRot);
     Math_Vec3s_Copy(&syncData->shapeRotation, &actor->shape.rot);
     Math_Vec3f_Copy(&syncData->worldPosition, &actor->world.pos);
 
-    NetworkSyncSendPlayerSync(syncData);
+    // If we have a player, sync player specific properties
+    if (actor->category == ACTORCAT_PLAYER) {
+        Player* player = (Player*)actor;
+        syncData->currentBoots = player->currentBoots;
+        syncData->currentShield = player->currentShield;
 
+        for (int i = 0; i < 24; i++) {
+            Math_Vec3s_Copy(&syncData->jointTable[i], &player->skelAnime.jointTable[i]);
+        }
+
+        Math_Vec3s_Copy(&syncData->upperLimbRot, &player->upperLimbRot);
+    }
+
+    NetworkSyncSendPlayerSync(syncData);
     recomp_free(syncData);
 }
 
@@ -106,12 +113,12 @@ void on_play_main(PlayState* play) {
             Actor* next_actor = actor->next; // Save next pointer before any potential changes
 
             if (net_data != NULL && net_data->is_synced) {
-                if (actor->id == 0) {
+                if (net_data->is_owned_locally) {
                     actor = next_actor;
-                    continue; // Skip local player, continue with next actor
+                    continue; // Skip locally owned actors, continue with next actor
                 }
 
-                // This is a remote actor - check if we have data for it
+                // This is a remotely owned actor - check if we have data for it
                 for (u32 j = 0; j < player_count; j++) {
                     const char* player_id = &ids_buffer[j * 64];
 
@@ -119,21 +126,20 @@ void on_play_main(PlayState* play) {
                         // Found a match, update actor with remote data
                         if (NetworkSyncGetRemotePlayerData(player_id, &remote_data)) {
                             Math_Vec3s_Copy(&actor->shape.rot, &remote_data.shapeRotation);
-
-                            // let's offset the position by just a bit on the x, since we're currently tracking ourselves
                             Math_Vec3f_Copy(&actor->world.pos, &remote_data.worldPosition);
 
-                            // For player actors, update more data
-                            Player* player = (Player*)actor; // hard coded to assume player, should be generalized later.
-                            player->currentBoots = remote_data.currentBoots;
-                            player->currentShield = remote_data.currentShield;
+                            // If we have a player, sync player specific properties
+                            if (actor->category == ACTORCAT_PLAYER) {
+                                Player* player = (Player*)actor;
+                                player->currentBoots = remote_data.currentBoots;
+                                player->currentShield = remote_data.currentShield;
 
-                            // Copy joint table if needed
-                            for (int k = 0; k < 24; k++) {
-                                Math_Vec3s_Copy(&player->skelAnime.jointTable[k], &remote_data.jointTable[k]);
+                                for (int k = 0; k < 24; k++) {
+                                    Math_Vec3s_Copy(&player->skelAnime.jointTable[k], &remote_data.jointTable[k]);
+                                }
+
+                                Math_Vec3s_Copy(&player->upperLimbRot, &remote_data.upperLimbRot);
                             }
-
-                            Math_Vec3s_Copy(&player->upperLimbRot, &remote_data.upperLimbRot);
 
                             break;
                         }
@@ -201,7 +207,7 @@ RECOMP_EXPORT const char* NS_GetActorNetworkId(Actor *actor) {
 
 // MARK: - Syncing
 
-RECOMP_EXPORT void NS_SyncActor(Actor* actor, const char* playerID) {
+RECOMP_EXPORT void NS_SyncActor(Actor* actor, const char* playerId, int isOwnedLocally) {
     if (actor == NULL) {
         recomp_printf("Cannot sync NULL actor\n");
         return;
@@ -221,6 +227,7 @@ RECOMP_EXPORT void NS_SyncActor(Actor* actor, const char* playerID) {
 
     // Mark actor as synced
     netData->is_synced = 1;
+    netData->is_owned_locally = isOwnedLocally;
 
     // Mark this category as containing synced actors
     if (actor->category < MAX_ACTOR_CATEGORIES) {
@@ -237,7 +244,7 @@ RECOMP_EXPORT void NS_SyncActor(Actor* actor, const char* playerID) {
             recomp_printf("Failed to get player ID\n");
         }
     } else {
-        strcpy(netData->player_id, playerID);
+        strcpy(netData->player_id, playerId);
         recomp_printf("Added actor %u to sync system\n", actor->id);
     }
 }

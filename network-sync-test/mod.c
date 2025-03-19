@@ -19,7 +19,7 @@ RECOMP_IMPORT("mm_network_sync", const char* NS_GetActorNetworkId(Actor *actor))
 RECOMP_IMPORT("mm_network_sync", u32 NS_GetRemotePlayerIDs(u32 maxPlayers, char* idsBuffer, u32 idBufferSize));
 RECOMP_IMPORT("mm_network_sync", u32 NS_GetRemotePlayerData(const char* playerID, void* dataBuffer));
 
-RECOMP_IMPORT("mm_network_sync", void NS_SyncActor(Actor* actor, const char* playerID));
+RECOMP_IMPORT("mm_network_sync", void NS_SyncActor(Actor* actor, const char* playerId, int isOwnedLocally));
 RECOMP_IMPORT("mm_network_sync", void NS_ExtendActorSynced(s16 actor_id, u32 size));
 
 RECOMP_IMPORT("ProxyMM_Notifications", void Notifications_Emit(const char* prefix, const char* msg, const char* suffix));
@@ -97,7 +97,7 @@ void on_play_main(PlayState* play) {
 RECOMP_HOOK("Player_Init")
 void OnPlayerInit(Actor* thisx, PlayState* play) {
     recomp_printf("Player initialized\n");
-    NS_SyncActor(thisx, NULL);
+    NS_SyncActor(thisx, NULL, 1);
 }
 
 // MARK: - Remote Player Actor Processing
@@ -137,7 +137,7 @@ void remote_actors_update(PlayState* play) {
             const char* playerId = remotePlayerIds[i];
             recomp_printf("Creating actor for player %s\n", playerId);
             actor = Actor_SpawnAsChildAndCutscene(&play->actorCtx, play, ACTOR_REMOTE_PLAYER, -9999.0f, -9999.0f, -9999.0f, 0, 0, 0, 0, 0, 0, 0);
-            NS_SyncActor(actor, playerId);
+            NS_SyncActor(actor, playerId, 0);
         }
     }
 
