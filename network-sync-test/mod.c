@@ -16,8 +16,8 @@ RECOMP_IMPORT("mm_network_sync", u8 NS_Connect(const char* host));
 RECOMP_IMPORT("mm_network_sync", u8 NS_JoinSession(const char* session));
 RECOMP_IMPORT("mm_network_sync", u8 NS_LeaveSession());
 RECOMP_IMPORT("mm_network_sync", const char* NS_GetActorNetworkId(Actor *actor));
-RECOMP_IMPORT("mm_network_sync", u32 NS_GetRemotePlayerIDs(u32 maxPlayers, char* idsBuffer, u32 idBufferSize));
-RECOMP_IMPORT("mm_network_sync", u32 NS_GetRemotePlayerData(const char* playerID, void* dataBuffer));
+RECOMP_IMPORT("mm_network_sync", u32 NS_GetRemoteActorIDs(u32 maxPlayers, char* idsBuffer, u32 idBufferSize));
+RECOMP_IMPORT("mm_network_sync", u32 NS_GetRemoteActorData(const char* playerID, void* dataBuffer));
 
 RECOMP_IMPORT("mm_network_sync", void NS_SyncActor(Actor* actor, const char* playerId, int isOwnedLocally));
 RECOMP_IMPORT("mm_network_sync", void NS_ExtendActorSynced(s16 actor_id, u32 size));
@@ -108,7 +108,7 @@ static u32 remotePlayerCount = 0;
 
 // Checks whether we need to create or destroy actors
 void remote_actors_update(PlayState* play) {
-    remotePlayerCount = NS_GetRemotePlayerIDs(MAX_REMOTE_PLAYERS, (char*)remotePlayerIds, 64);
+    remotePlayerCount = NS_GetRemoteActorIDs(MAX_REMOTE_PLAYERS, (char*)remotePlayerIds, 64);
     recomp_printf("Remote player count: %d\n", remotePlayerCount);
 
     // Create actors for new remote players (only if we have any)

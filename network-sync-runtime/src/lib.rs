@@ -85,8 +85,8 @@ pub extern "C" fn NetworkSyncDisconnect(_rdram: *mut u8, ctx: *mut RecompContext
 }
 
 #[no_mangle]
-pub extern "C" fn NetworkSyncGetPlayerId(rdram: *mut u8, ctx: *mut RecompContext) {
-    execute_safely(ctx, "NetworkSyncGetPlayerId", |ctx| {
+pub extern "C" fn NetworkSyncGetClientId(rdram: *mut u8, ctx: *mut RecompContext) {
+    execute_safely(ctx, "NetworkSyncGetClientId", |ctx| {
         let player_id_buf = ctx.get_arg_u64(0);
         let max_len = ctx.get_arg_u32(1) as usize;
 
@@ -162,8 +162,8 @@ pub extern "C" fn NetworkSyncLeaveSession(_rdram: *mut u8, ctx: *mut RecompConte
 }
 
 #[no_mangle]
-pub extern "C" fn NetworkSyncSendPlayerSync(rdram: *mut u8, ctx: *mut RecompContext) {
-    execute_safely(ctx, "NetworkSyncSendPlayerSync", |ctx| {
+pub extern "C" fn NetworkSyncEmitActorData(rdram: *mut u8, ctx: *mut RecompContext) {
+    execute_safely(ctx, "NetworkSyncEmitActorData", |ctx| {
         let addr = ctx.get_arg_u64(0);
         let player_data = unsafe { PlayerData::read_from_mem(ctx, rdram, addr) };
 
@@ -183,8 +183,8 @@ pub extern "C" fn NetworkSyncSendPlayerSync(rdram: *mut u8, ctx: *mut RecompCont
 }
 
 #[no_mangle]
-pub extern "C" fn NetworkSyncGetRemotePlayerIDs(rdram: *mut u8, ctx: *mut RecompContext) {
-    execute_safely(ctx, "NetworkSyncGetRemotePlayerIDs", |ctx| {
+pub extern "C" fn NetworkSyncGetRemoteActorIDs(rdram: *mut u8, ctx: *mut RecompContext) {
+    execute_safely(ctx, "NetworkSyncGetRemoteActorIDs", |ctx| {
         let max_players = ctx.get_arg_u32(0);
         let ids_buffer = ctx.get_arg_u64(1); // Get the virtual address
         let id_buffer_size = ctx.get_arg_u32(2);
@@ -218,8 +218,8 @@ pub extern "C" fn NetworkSyncGetRemotePlayerIDs(rdram: *mut u8, ctx: *mut Recomp
 }
 
 #[no_mangle]
-pub extern "C" fn NetworkSyncGetRemotePlayerData(rdram: *mut u8, ctx: *mut RecompContext) {
-    execute_safely(ctx, "NetworkSyncGetRemotePlayerData", |ctx| {
+pub extern "C" fn NetworkSyncGetRemoteActorData(rdram: *mut u8, ctx: *mut RecompContext) {
+    execute_safely(ctx, "NetworkSyncGetRemoteActorData", |ctx| {
         let player_id = unsafe { ctx.get_arg_string(rdram, 0) };
         let data_buffer_addr = ctx.get_arg_u64(1);
 
