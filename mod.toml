@@ -42,10 +42,10 @@ native_libraries = [
         "NetworkSyncConnect",
         "NetworkSyncJoinSession",
         "NetworkSyncLeaveSession",
-        "NetworkSyncGetPlayerId",
-        "NetworkSyncSendPlayerSync",
-        "NetworkSyncGetRemotePlayerIDs",
-        "NetworkSyncGetRemotePlayerData",
+        "NetworkSyncGetClientId",
+        "NetworkSyncEmitActorData",
+        "NetworkSyncGetRemoteActorIDs",
+        "NetworkSyncGetRemoteActorData",
     ] },
 ]
 

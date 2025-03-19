@@ -71,7 +71,7 @@ Gets the network identifier for a registered actor.
 
 ### Remote Player Data
 
-#### `u32 NS_GetRemotePlayerIDs(u32 maxPlayers, char* idsBuffer, u32 idBufferSize)`
+#### `u32 NS_GetRemoteActorIDs(u32 maxPlayers, char* idsBuffer, u32 idBufferSize)`
 Gets a list of connected remote player IDs.
 
 - **Parameters:**
@@ -81,7 +81,7 @@ Gets a list of connected remote player IDs.
 - **Returns:** Number of remote player IDs retrieved
 - **Usage:** Call this to get a list of all other players in the session.
 
-#### `u32 NS_GetRemotePlayerData(const char* playerID, void* dataBuffer)`
+#### `u32 NS_GetRemoteActorData(const char* playerID, void* dataBuffer)`
 Retrieves the most recent data for a specific remote player.
 
 - **Parameters:**
@@ -119,6 +119,6 @@ typedef struct {
 
 3. **Actor ownership**: For each actor, only one client should set `isOwnedLocally` to 1.
 
-4. **Remote player rendering**: Create separate actor instances for remote players and update them with `NS_GetRemotePlayerData()`.
+4. **Remote player rendering**: Create separate actor instances for remote players and update them with `NS_GetRemoteActorData()`.
 
 5. **Session design**: Use meaningful session names to separate different multiplayer groups.
