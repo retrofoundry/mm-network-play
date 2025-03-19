@@ -27,15 +27,14 @@ struct Args {
 // Message types for the protocol
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ClientMessage {
-    pub command: String,
+    pub event_type: String,
     pub session_id: Option<String>,
-    pub data: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ServerMessage {
     event_type: String,
-    player_id: String,
+    sender_id: String,
     data: serde_json::Value,
 }
 
@@ -190,7 +189,7 @@ async fn handle_connection(
     // Send welcome message with connection ID
     let welcome = ServerMessage {
         event_type: "welcome".to_string(),
-        player_id: connection_id.clone(),
+        sender_id: connection_id.clone(),
         data: serde_json::json!({}),
     };
 
@@ -228,12 +227,10 @@ async fn handle_connection(
         debug!("Received message from {}", connection_id);
 
         if let Message::Text(text) = msg {
-            debug!("Received text message from {}: {}", connection_id, text);
-
             // Try to parse as client message
             match serde_json::from_str::<ClientMessage>(&text) {
                 Ok(client_msg) => {
-                    match client_msg.command.as_str() {
+                    match client_msg.event_type.as_str() {
                         "join_session" => {
                             if let Some(session_id) = &client_msg.session_id {
                                 let members = {
@@ -244,7 +241,7 @@ async fn handle_connection(
                                 // Notify all session members
                                 let session_msg = ServerMessage {
                                     event_type: "session_members".to_string(),
-                                    player_id: connection_id.clone(),
+                                    sender_id: connection_id.clone(),
                                     data: serde_json::json!({
                                         "session_id": session_id,
                                         "members": members,
@@ -277,7 +274,7 @@ async fn handle_connection(
                                 // Notify remaining members
                                 let leave_msg = ServerMessage {
                                     event_type: "session_members".to_string(),
-                                    player_id: connection_id.clone(),
+                                    sender_id: connection_id.clone(),
                                     data: serde_json::json!({
                                         "session_id": session_id,
                                         "members": members,
@@ -295,16 +292,10 @@ async fn handle_connection(
                             }
                         }
 
-                        "player_sync" => {
-                            let sync_msg = ServerMessage {
-                                event_type: "player_sync".to_string(),
-                                player_id: connection_id.clone(),
-                                data: client_msg.data.unwrap_or(serde_json::Value::Null),
-                            };
-
-                            let msg_str = serde_json::to_string(&sync_msg)?;
-
-                            // Broadcast to everyone in the same session
+                        _ => {
+                            debug!("Forwarding message from {}: {}", connection_id, text);
+                            // Messages not specially handled we'll broadcast to everyone in the same session
+                            let msg_str = text.clone();
                             let state = state.lock().unwrap();
                             if let Some(Some(session_id)) = state.connections.get(&connection_id) {
                                 for member in state.get_session_members(session_id) {
@@ -312,14 +303,19 @@ async fn handle_connection(
                                 }
                             }
                         }
-
-                        _ => {
-                            error!("Unknown command: {}", client_msg.command);
-                        }
                     }
                 }
                 Err(e) => {
-                    error!("Failed to parse message: {} ({})", text, e);
+                    debug!("Forwarding message from {}: {}", connection_id, text);
+
+                    // Messages not specially handled we'll broadcast to everyone in the same session
+                    let msg_str = text.clone();
+                    let state = state.lock().unwrap();
+                    if let Some(Some(session_id)) = state.connections.get(&connection_id) {
+                        for member in state.get_session_members(session_id) {
+                            tx.send((member, msg_str.clone()))?;
+                        }
+                    }
                 }
             }
         }
@@ -352,7 +348,7 @@ async fn handle_connection(
             // Create disconnection message with updated member list
             let disconnect_msg = ServerMessage {
                 event_type: "session_members".to_string(),
-                player_id: connection_id.clone(),
+                sender_id: connection_id.clone(),
                 data: serde_json::json!({
                     "session_id": session_id,
                     "members": members,

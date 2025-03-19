@@ -1,11 +1,14 @@
+#include <stdint.h>
+#include <string.h>
+
 #include "modding.h"
 #include "global.h"
 #include "recomputils.h"
-#include "recompconfig.h"
-#include "recompui.h"
 #include "z64recomp_api.h"
-#include <stdint.h>
-#include <string.h>
+
+// MARK: - Forward Declarations
+
+void process_pending_updates();
 
 // MARK: - Actor Extension
 
@@ -20,7 +23,7 @@ static u8 gSyncedActorCategories[MAX_ACTOR_CATEGORIES] = {0};  // Bitset for cat
 // Structure to hold network-specific data for each actor
 typedef struct {
     // UUID string for this actor
-    char player_id[64];
+    char actor_id[64];
     // Flag indicating if actor is being synced
     u8 is_synced;
     // Flag indicating whether we are in charge of pushing its data to the server
@@ -57,7 +60,7 @@ RECOMP_IMPORT(".", u8 NetworkSyncLeaveSession());
 RECOMP_IMPORT(".", u8 NetworkSyncGetClientId(char* buffer, u32 bufferSize));
 RECOMP_IMPORT(".", void NetworkSyncEmitActorData(ActorSyncData* data));
 RECOMP_IMPORT(".", u32 NetworkSyncGetRemoteActorIDs(u32 maxPlayers, char* idsBuffer, u32 idBufferSize));
-RECOMP_IMPORT(".", u32 NetworkSyncGetRemoteActorData(const char* player_id, ActorSyncData* data));
+RECOMP_IMPORT(".", u32 NetworkSyncGetRemoteActorData(const char* actor_id, ActorSyncData* data));
 
 // MARK: - Events
 
@@ -119,11 +122,11 @@ void on_play_main(PlayState* play) {
 
                 // This is a remotely owned actor - check if we have data for it
                 for (u32 j = 0; j < player_count; j++) {
-                    const char* player_id = &ids_buffer[j * 64];
+                    const char* actor_id = &ids_buffer[j * 64];
 
-                    if (strcmp(net_data->player_id, player_id) == 0) {
+                    if (strcmp(net_data->actor_id, actor_id) == 0) {
                         // Found a match, update actor with remote data
-                        if (NetworkSyncGetRemoteActorData(player_id, &remote_data)) {
+                        if (NetworkSyncGetRemoteActorData(actor_id, &remote_data)) {
                             Math_Vec3s_Copy(&actor->shape.rot, &remote_data.shapeRotation);
                             Math_Vec3f_Copy(&actor->world.pos, &remote_data.worldPosition);
 
@@ -149,6 +152,8 @@ void on_play_main(PlayState* play) {
             actor = next_actor;
         }
     }
+
+    process_pending_updates();
 }
 
 // MARK: - API
@@ -196,12 +201,12 @@ RECOMP_EXPORT const char* NS_GetActorNetworkId(Actor *actor) {
     }
 
     // Check if we have a valid player ID
-    if (netData->player_id[0] == '\0') {
+    if (netData->actor_id[0] == '\0') {
         return NULL;
     }
 
     // Return the player ID string
-    return netData->player_id;
+    return netData->actor_id;
 }
 
 // MARK: - Syncing
@@ -237,13 +242,13 @@ RECOMP_EXPORT void NS_SyncActor(Actor* actor, const char* playerId, int isOwnedL
         char playerIdBuffer[64];
         u8 success = NetworkSyncGetClientId(playerIdBuffer, sizeof(playerIdBuffer));
         if (success) {
-            strcpy(netData->player_id, playerIdBuffer);
+            strcpy(netData->actor_id, playerIdBuffer);
             recomp_printf("Added player to sync system\n");
         } else {
             recomp_printf("Failed to get player ID\n");
         }
     } else {
-        strcpy(netData->player_id, playerId);
+        strcpy(netData->actor_id, playerId);
         recomp_printf("Added actor %u to sync system\n", actor->id);
     }
 }

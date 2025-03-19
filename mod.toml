@@ -46,6 +46,9 @@ native_libraries = [
         "NetworkSyncEmitActorData",
         "NetworkSyncGetRemoteActorIDs",
         "NetworkSyncGetRemoteActorData",
+        "NetworkSyncEmitMessage",
+        "NetworkSyncGetPendingMessageSize",
+        "NetworkSyncGetMessage",
     ] },
 ]
 
