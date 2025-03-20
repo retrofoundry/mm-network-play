@@ -274,7 +274,7 @@ pub extern "C" fn NetworkSyncEmitMessage(rdram: *mut u8, ctx: *mut RecompContext
 }
 
 #[no_mangle]
-pub extern "C" fn NetworkSyncGetPendingMessageSize(rdram: *mut u8, ctx: *mut RecompContext) {
+pub extern "C" fn NetworkSyncGetPendingMessageSize(_rdram: *mut u8, ctx: *mut RecompContext) {
     execute_safely(ctx, "NetworkSyncGetPendingMessageSize", |ctx| {
         let size = with_network_sync(|module| module.get_pending_message_size() as i32, 0i32);
         ctx.set_return(size);

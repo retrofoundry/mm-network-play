@@ -8,7 +8,7 @@ use std::time::Instant;
 use tokio::runtime::Runtime;
 
 use crate::messages::{
-    ActorSyncMessage, JoinSessionMessage, LeaveSessionMessage, NetworkMessage, RegisteredMessage,
+    ActorSyncMessage, JoinSessionMessage, LeaveSessionMessage, RegisteredMessage,
     ServerMessage,
 };
 use crate::types::{ActorData, RemoteActorData};

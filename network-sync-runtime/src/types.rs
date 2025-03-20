@@ -4,17 +4,18 @@ use serde::{Deserialize, Serialize};
 #[repr(C)]
 #[derive(Debug, Clone, Serialize, Deserialize, N64MemoryIO)]
 pub struct ActorData {
-    pub worldPosition: Vec3f,
-    pub shapeRotation: Vec3s,
+    pub world_position: Vec3f,
+    pub shape_rotation: Vec3s,
 
     // Player Actor specific properties
-    pub upperLimbRot: Vec3s,
-    pub jointTable: [Vec3s; 24],
-    pub currentMask: i8,
-    pub currentShield: i8,
+    pub upper_limb_rot: Vec3s,
+    pub joint_table: [Vec3s; 24],
+    pub current_mask: i8,
+    pub current_shield: i8,
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct RemoteActorData {
     pub id: String,
     pub data: ActorData,
