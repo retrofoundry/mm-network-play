@@ -1,8 +1,8 @@
 #ifndef NETWORK_CORE_H
 #define NETWORK_CORE_H
 
-#include <stdint.h>
 #include "modding.h"
+#include <stdint.h>
 
 // MARK: - Network Core Imports
 

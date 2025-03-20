@@ -1,10 +1,8 @@
-#include <stdint.h>
-#include <string.h>
-
-#include "modding.h"
-#include "global.h"
+#include "message_system.h"
 #include "recomputils.h"
 #include "network_core.h"
+
+#include <string.h>
 
 // Message callback registry
 typedef struct {

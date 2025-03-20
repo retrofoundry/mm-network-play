@@ -1,10 +1,7 @@
 #include <stdint.h>
-#include <string.h>
 
 #include "modding.h"
 #include "global.h"
-#include "recomputils.h"
-#include "z64recomp_api.h"
 #include "actor_sync.h"
 #include "message_system.h"
 
@@ -20,7 +17,7 @@ RECOMP_CALLBACK("*", recomp_on_play_main)
 void on_play_main(PlayState* play) {
     // Process remote actor data
     ActorSyncProcessRemoteData(play);
-    
+
     // Process pending messages
     MessageSystemProcessPending();
-} 
+}

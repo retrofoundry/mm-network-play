@@ -1,8 +1,7 @@
 #ifndef ACTOR_SYNC_H
 #define ACTOR_SYNC_H
 
-#include <stdint.h>
-#include "z64recomp_api.h"
+#include "global.h"
 
 // MARK: - Actor Sync API
 

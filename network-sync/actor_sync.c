@@ -1,12 +1,9 @@
-#include <stdint.h>
-#include <string.h>
-
-#include "modding.h"
-#include "global.h"
+#include "actor_sync.h"
 #include "recomputils.h"
 #include "z64recomp_api.h"
 #include "network_core.h"
-#include "message_system.h"
+
+#include <string.h>
 
 // MARK: - Actor Extension
 

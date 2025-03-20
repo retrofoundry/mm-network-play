@@ -1,7 +1,7 @@
 #ifndef MESSAGE_SYSTEM_H
 #define MESSAGE_SYSTEM_H
 
-#include <stdint.h>
+#include "global.h"
 
 // MARK: - Message System API
 
