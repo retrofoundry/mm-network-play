@@ -92,6 +92,32 @@ Retrieves the most recent data for a specific remote player.
   - `0` if data could not be retrieved
 - **Usage:** Call this to get the latest position, animation, and state data for a remote player.
 
+### Custom Message Handling
+
+#### `u8 NS_RegisterMessageHandler(const char* messageId, u32 payloadSize, void* callback)`
+Registers a callback function to handle custom messages of a specific type.
+
+- **Parameters:**
+  - `messageId`: String identifier for the message type
+  - `payloadSize`: Size of the expected message payload in bytes
+  - `callback`: Function pointer to the callback that will handle messages of this type
+    - Callback signature: `void (*callback)(void* data)`
+- **Returns:**
+  - `0` if registration was successful
+  - `1` if registration failed
+- **Usage:** Call during initialization to set up handlers for custom message types.
+
+#### `u8 NS_EmitMessage(const char* messageId, void* data)`
+Sends a custom message to all other clients in the session.
+
+- **Parameters:**
+  - `messageId`: String identifier for the message type (must match a registered handler)
+  - `data`: Pointer to the message payload data
+- **Returns:**
+  - `0` if message was sent successfully
+  - `1` if sending failed
+- **Usage:** Call to broadcast custom messages to other clients.
+
 ## Data Structures
 
 ### `PlayerSyncData`
