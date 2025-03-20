@@ -1,14 +1,17 @@
 use anyhow::Result;
 use gamecore::network::NetworkModule;
 use serde_json;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::panic;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Instant;
 use tokio::runtime::Runtime;
 
-use crate::messages::{JoinSessionMessage, LeaveSessionMessage, NetworkMessage, PlayerSyncMessage};
-use crate::types::{PlayerData, RemotePlayerData};
+use crate::messages::{
+    ActorSyncMessage, JoinSessionMessage, LeaveSessionMessage, NetworkMessage, RegisteredMessage,
+    ServerMessage,
+};
+use crate::types::{ActorData, RemoteActorData};
 
 // Global singleton instances
 pub static NETWORK_PLAY: OnceLock<Arc<Mutex<NetworkSyncModule>>> = OnceLock::new();
@@ -30,10 +33,12 @@ pub fn get_network_sync() -> Arc<Mutex<NetworkSyncModule>> {
 pub struct NetworkSyncModule {
     network: NetworkModule,
     connected: bool,
-    pub player_id: String,
+    pub client_id: String,
     current_session_id: Option<String>,
     session_members: Vec<String>,
-    pub remote_players: HashMap<String, RemotePlayerData>,
+    pub remote_actors: HashMap<String, RemoteActorData>,
+    /// Queue of (message_id, data) tuples
+    pub message_queue: VecDeque<(String, Vec<u8>)>,
 }
 
 impl NetworkSyncModule {
@@ -41,10 +46,11 @@ impl NetworkSyncModule {
         Self {
             network: NetworkModule::new(),
             connected: false,
-            player_id: "".to_string(),
+            client_id: "".to_string(),
             current_session_id: None,
             session_members: Vec::new(),
-            remote_players: HashMap::new(),
+            remote_actors: HashMap::new(),
+            message_queue: VecDeque::new(),
         }
     }
 
@@ -83,7 +89,7 @@ impl NetworkSyncModule {
 
         // Create join session message
         let join_msg = JoinSessionMessage {
-            command: "join_session".to_string(),
+            event_type: "join_session".to_string(),
             session_id: session_id.to_string(),
         };
 
@@ -107,8 +113,7 @@ impl NetworkSyncModule {
 
         if let Some(session_id) = &self.current_session_id {
             let leave_msg = LeaveSessionMessage {
-                command: "leave_session".to_string(),
-                session_id: session_id.to_string(),
+                event_type: "leave_session".to_string(),
             };
 
             let json = serde_json::to_string(&leave_msg)?;
@@ -141,27 +146,84 @@ impl NetworkSyncModule {
         Ok(())
     }
 
-    pub fn send_player_sync(&mut self, player_data: &PlayerData) -> Result<()> {
+    // Sends an actor sync event
+    pub fn send_actor_sync(&mut self, player_data: &ActorData) -> Result<()> {
+        if !self.connected {
+            return Err(anyhow::anyhow!("Not connected"));
+        }
+
+        let player_update_msg = ActorSyncMessage {
+            event_type: "actor_sync".to_string(),
+            sender_id: self.client_id.clone(),
+            data: player_data.clone(),
+        };
+
+        let json = serde_json::to_string(&player_update_msg)?;
+
+        // Send player data to the server
+        let runtime = get_tokio_runtime();
+        runtime.block_on(async { self.network.send_message(&json).await })?;
+
+        Ok(())
+    }
+
+    // Send a message to other clients
+    pub fn send_message(&mut self, message_id: &str, data: Vec<u8>) -> Result<()> {
         if !self.connected {
             return Err(anyhow::anyhow!("Not connected"));
         }
 
         if let Some(session_id) = &self.current_session_id {
-            let player_update_msg = PlayerSyncMessage {
-                command: "player_sync".to_string(),
-                session_id: session_id.clone(),
-                player_id: self.player_id.clone(),
-                data: player_data.clone(),
+            let msg = RegisteredMessage {
+                event_type: "registered_message".to_string(),
+                sender_id: self.client_id.clone(),
+                message_id: message_id.to_string(),
+                data,
             };
 
-            let json = serde_json::to_string(&player_update_msg)?;
+            let json = serde_json::to_string(&msg)?;
 
-            // Send player data to the server
+            // Send message to the server
             let runtime = get_tokio_runtime();
             runtime.block_on(async { self.network.send_message(&json).await })?;
+
+            log::debug!("Sent message '{}' to session {}", message_id, session_id);
         }
 
         Ok(())
+    }
+
+    // Get the size of the next message in the queue
+    pub fn get_pending_message_size(&self) -> u32 {
+        if let Some((_, data)) = self.message_queue.front() {
+            data.len() as u32
+        } else {
+            0 // No messages
+        }
+    }
+
+    // Get the next message from the queue
+    pub fn get_message(&mut self, buffer: &mut [u8]) -> Option<String> {
+        if let Some((message_id, data)) = self.message_queue.pop_front() {
+            if buffer.len() >= data.len() {
+                buffer[..data.len()].copy_from_slice(&data);
+                Some(message_id)
+            } else {
+                log::error!(
+                    "Buffer too small for message: {} > {}",
+                    data.len(),
+                    buffer.len()
+                );
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    // Queue a message
+    fn queue_message(&mut self, message_id: String, data: Vec<u8>) {
+        self.message_queue.push_back((message_id, data));
     }
 }
 
@@ -173,24 +235,11 @@ fn process_network_message(message: &str) -> Result<()> {
         return Ok(());
     }
 
-    // Parse JSON
-    let json_value = match serde_json::from_str::<serde_json::Value>(message) {
-        Ok(value) => value,
-        Err(e) => {
-            log::debug!("Received non-JSON message: {} (Error: {})", message, e);
-            return Ok(());
-        }
-    };
-
     // Parse NetworkMessage
-    let network_msg = match serde_json::from_value::<NetworkMessage>(json_value) {
+    let server_msg = match serde_json::from_str::<ServerMessage>(message) {
         Ok(msg) => msg,
         Err(e) => {
-            log::debug!(
-                "Message is not in NetworkMessage format: {} (Error: {})",
-                message,
-                e
-            );
+            log::debug!("Failed to parse message: {} (Error: {})", message, e);
             return Ok(());
         }
     };
@@ -198,18 +247,16 @@ fn process_network_message(message: &str) -> Result<()> {
     let network_sync = get_network_sync();
     let mut module = network_sync.lock().unwrap();
 
-    match network_msg.event_type.as_str() {
-        // Handle welcome message - just gets our player ID
-        "welcome" => {
-            module.player_id = network_msg.player_id.clone();
-            log::info!("Connected as player ID: {}", module.player_id);
+    match server_msg {
+        ServerMessage::Welcome(msg) => {
+            module.client_id = msg.sender_id.clone();
+            log::info!("Connected as player ID: {}", module.client_id);
         }
 
-        // Handle session_members event - updates who's in our session
-        "session_members" => {
-            if let Some(session_id) = network_msg.data.get("session_id").and_then(|v| v.as_str()) {
+        ServerMessage::SessionMembers(msg) => {
+            if let Some(session_id) = msg.data.get("session_id").and_then(|v| v.as_str()) {
                 // Update the member list
-                if let Some(members) = network_msg.data.get("members").and_then(|v| v.as_array()) {
+                if let Some(members) = msg.data.get("members").and_then(|v| v.as_array()) {
                     let session_members: Vec<String> = members
                         .iter()
                         .filter_map(|v| v.as_str().map(String::from))
@@ -223,7 +270,7 @@ fn process_network_message(message: &str) -> Result<()> {
                     for old_member in old_members {
                         if !session_members.contains(&old_member) {
                             // This player is no longer in the session, remove them from remote_players
-                            module.remote_players.remove(&old_member);
+                            module.remote_actors.remove(&old_member);
                             log::info!("Player {} has disconnected", old_member);
                         }
                     }
@@ -238,31 +285,33 @@ fn process_network_message(message: &str) -> Result<()> {
             }
         }
 
-        // Handle player_sync event - updates player data
-        "player_sync" => {
-            if network_msg.player_id != module.player_id {
+        ServerMessage::ActorSync(msg) => {
+            if msg.sender_id != module.client_id {
                 // Only store data from other players, not ourself
-                if let Ok(player_data) =
-                    serde_json::from_value::<PlayerData>(network_msg.data.clone())
-                {
-                    let remote_data = RemotePlayerData {
-                        player_id: network_msg.player_id.clone(),
-                        data: player_data,
-                        last_update: Instant::now(),
-                    };
+                let remote_data = RemoteActorData {
+                    id: msg.sender_id.clone(),
+                    data: msg.data.clone(),
+                    last_update: Instant::now(),
+                };
 
-                    // Store the remote player data
-                    module
-                        .remote_players
-                        .insert(network_msg.player_id.clone(), remote_data);
+                // Store the remote player data
+                module
+                    .remote_actors
+                    .insert(msg.sender_id.clone(), remote_data);
 
-                    log::debug!("Received player sync from {}", network_msg.player_id);
-                }
+                log::debug!("Received actor sync from {}", msg.sender_id);
             }
         }
 
-        _ => {
-            log::debug!("Unhandled message type: {}", network_msg.event_type);
+        ServerMessage::RegisteredMessage(msg) => {
+            if msg.sender_id != module.client_id {
+                module.queue_message(msg.message_id.clone(), msg.data);
+                log::debug!(
+                    "Received message '{}' from {}",
+                    msg.message_id,
+                    msg.sender_id
+                );
+            }
         }
     }
 

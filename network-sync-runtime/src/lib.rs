@@ -4,10 +4,10 @@ mod types;
 mod utils;
 
 use env_logger::Builder;
-use n64_recomp::{N64MemoryIO, RecompContext};
+use n64_recomp::{mem_bu, mem_bu_write, N64MemoryIO, RecompContext};
 use network::get_network_sync;
 use std::panic;
-use types::PlayerData;
+use types::ActorData;
 use utils::{execute_safely, with_network_sync, with_network_sync_mut};
 
 // C - API
@@ -87,17 +87,17 @@ pub extern "C" fn NetworkSyncDisconnect(_rdram: *mut u8, ctx: *mut RecompContext
 #[no_mangle]
 pub extern "C" fn NetworkSyncGetClientId(rdram: *mut u8, ctx: *mut RecompContext) {
     execute_safely(ctx, "NetworkSyncGetClientId", |ctx| {
-        let player_id_buf = ctx.get_arg_u64(0);
+        let actor_id_buf = ctx.get_arg_u64(0);
         let max_len = ctx.get_arg_u32(1) as usize;
 
         let success = with_network_sync(
             |module| {
-                if !module.player_id.is_empty() {
+                if !module.client_id.is_empty() {
                     unsafe {
                         let _ = ctx.write_string_to_mem(
                             rdram,
-                            player_id_buf,
-                            &module.player_id,
+                            actor_id_buf,
+                            &module.client_id,
                             max_len,
                         );
                     }
@@ -165,13 +165,13 @@ pub extern "C" fn NetworkSyncLeaveSession(_rdram: *mut u8, ctx: *mut RecompConte
 pub extern "C" fn NetworkSyncEmitActorData(rdram: *mut u8, ctx: *mut RecompContext) {
     execute_safely(ctx, "NetworkSyncEmitActorData", |ctx| {
         let addr = ctx.get_arg_u64(0);
-        let player_data = unsafe { PlayerData::read_from_mem(ctx, rdram, addr) };
+        let player_data = unsafe { ActorData::read_from_mem(ctx, rdram, addr) };
 
         let result = with_network_sync_mut(
-            |module| match module.send_player_sync(&player_data) {
+            |module| match module.send_actor_sync(&player_data) {
                 Ok(_) => 1i32,
                 Err(e) => {
-                    log::error!("Failed to send player sync: {}", e);
+                    log::error!("Failed to send actor sync: {}", e);
                     0i32
                 }
             },
@@ -194,8 +194,8 @@ pub extern "C" fn NetworkSyncGetRemoteActorIDs(rdram: *mut u8, ctx: *mut RecompC
                 let mut count = 0;
 
                 if max_players > 0 {
-                    let player_ids: Vec<&String> = module.remote_players.keys().collect();
-                    let str_refs: Vec<&str> = player_ids.iter().map(|s| s.as_str()).collect();
+                    let actor_ids: Vec<&String> = module.remote_actors.keys().collect();
+                    let str_refs: Vec<&str> = actor_ids.iter().map(|s| s.as_str()).collect();
 
                     unsafe {
                         count = ctx.write_string_array_to_mem(
@@ -220,12 +220,12 @@ pub extern "C" fn NetworkSyncGetRemoteActorIDs(rdram: *mut u8, ctx: *mut RecompC
 #[no_mangle]
 pub extern "C" fn NetworkSyncGetRemoteActorData(rdram: *mut u8, ctx: *mut RecompContext) {
     execute_safely(ctx, "NetworkSyncGetRemoteActorData", |ctx| {
-        let player_id = unsafe { ctx.get_arg_string(rdram, 0) };
+        let actor_id = unsafe { ctx.get_arg_string(rdram, 0) };
         let data_buffer_addr = ctx.get_arg_u64(1);
 
         let success = with_network_sync(
             |module| {
-                if let Some(remote_player) = module.remote_players.get(&player_id) {
+                if let Some(remote_player) = module.remote_actors.get(&actor_id) {
                     unsafe {
                         remote_player
                             .data
@@ -240,5 +240,86 @@ pub extern "C" fn NetworkSyncGetRemoteActorData(rdram: *mut u8, ctx: *mut Recomp
         );
 
         ctx.set_return(success);
+    });
+}
+
+#[no_mangle]
+pub extern "C" fn NetworkSyncEmitMessage(rdram: *mut u8, ctx: *mut RecompContext) {
+    execute_safely(ctx, "NetworkSyncEmitMessage", |ctx| {
+        let message_id = unsafe { ctx.get_arg_string(rdram, 0) };
+        let data_size = ctx.get_arg_u32(1) as usize;
+        let data_ptr = ctx.get_arg_u64(2);
+
+        // Read the data from the provided pointer
+        let mut data = Vec::with_capacity(data_size);
+        unsafe {
+            for i in 0..data_size {
+                data.push(mem_bu(rdram, data_ptr + i as u64));
+            }
+        }
+
+        let result = with_network_sync_mut(
+            |module| match module.send_message(&message_id, data) {
+                Ok(_) => 1i32,
+                Err(e) => {
+                    log::error!("Failed to send message {}: {}", message_id, e);
+                    0i32
+                }
+            },
+            0i32,
+        );
+
+        ctx.set_return(result);
+    });
+}
+
+#[no_mangle]
+pub extern "C" fn NetworkSyncGetPendingMessageSize(rdram: *mut u8, ctx: *mut RecompContext) {
+    execute_safely(ctx, "NetworkSyncGetPendingMessageSize", |ctx| {
+        let size = with_network_sync(|module| module.get_pending_message_size() as i32, 0i32);
+        ctx.set_return(size);
+    });
+}
+
+#[no_mangle]
+pub extern "C" fn NetworkSyncGetMessage(rdram: *mut u8, ctx: *mut RecompContext) {
+    execute_safely(ctx, "NetworkSyncGetMessage", |ctx| {
+        let buffer_ptr = ctx.get_arg_u64(0);
+        let buffer_size = ctx.get_arg_u32(1) as usize;
+        let message_id_buffer = ctx.get_arg_u64(2);
+
+        // Create a buffer to hold the message data
+        let mut buffer = vec![0u8; buffer_size];
+
+        let message_id = with_network_sync_mut(
+            |module| {
+                if let Some(id) = module.get_message(&mut buffer) {
+                    // Copy the data to the guest memory
+                    unsafe {
+                        for (i, &byte) in buffer.iter().enumerate() {
+                            mem_bu_write(rdram, buffer_ptr + i as u64, byte);
+                        }
+                    }
+                    Some(id)
+                } else {
+                    None
+                }
+            },
+            None,
+        );
+
+        // Write the message ID to the return value or empty string if None
+        if let Some(id) = message_id.clone() {
+            let id_len = id.len().min(63); // Max 63 chars + null terminator
+            unsafe {
+                ctx.write_string_to_mem(rdram, message_id_buffer, &id, id_len + 1);
+            }
+        } else {
+            unsafe {
+                mem_bu_write(rdram, message_id_buffer, 0);
+            }
+        }
+
+        ctx.set_return(if message_id.is_some() { 1i32 } else { 0i32 });
     });
 }

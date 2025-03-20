@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 #[repr(C)]
 #[derive(Debug, Clone, Serialize, Deserialize, N64MemoryIO)]
-pub struct PlayerData {
+pub struct ActorData {
     pub worldPosition: Vec3f,
     pub shapeRotation: Vec3s,
 
@@ -15,8 +15,8 @@ pub struct PlayerData {
 }
 
 #[derive(Debug, Clone)]
-pub struct RemotePlayerData {
-    pub player_id: String,
-    pub data: PlayerData,
+pub struct RemoteActorData {
+    pub id: String,
+    pub data: ActorData,
     pub last_update: std::time::Instant,
 }

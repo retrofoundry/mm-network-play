@@ -76,7 +76,7 @@ MAIN_C_OBJS := $(addprefix $(BUILD_DIR)/main/, $(MAIN_C_SRCS:.c=.o))
 MAIN_C_DEPS := $(addprefix $(BUILD_DIR)/main/, $(MAIN_C_SRCS:.c=.d))
 
 # Test mod files
-TEST_C_SRCS := $(wildcard network-sync-test/*.c network-sync-test/**/*.c)
+TEST_C_SRCS := $(wildcard network-sync-test/*.c)
 TEST_C_OBJS := $(addprefix $(BUILD_DIR)/test/, $(TEST_C_SRCS:.c=.o))
 TEST_C_DEPS := $(addprefix $(BUILD_DIR)/test/, $(TEST_C_SRCS:.c=.d))
 

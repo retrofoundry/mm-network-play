@@ -15,12 +15,13 @@ RECOMP_IMPORT("mm_network_sync", void NS_Init());
 RECOMP_IMPORT("mm_network_sync", u8 NS_Connect(const char* host));
 RECOMP_IMPORT("mm_network_sync", u8 NS_JoinSession(const char* session));
 RECOMP_IMPORT("mm_network_sync", u8 NS_LeaveSession());
+RECOMP_IMPORT("mm_network_sync", void NS_SyncActor(Actor* actor, const char* playerId, int isOwnedLocally));
 RECOMP_IMPORT("mm_network_sync", const char* NS_GetActorNetworkId(Actor *actor));
 RECOMP_IMPORT("mm_network_sync", u32 NS_GetRemoteActorIDs(u32 maxPlayers, char* idsBuffer, u32 idBufferSize));
 RECOMP_IMPORT("mm_network_sync", u32 NS_GetRemoteActorData(const char* playerID, void* dataBuffer));
 
-RECOMP_IMPORT("mm_network_sync", void NS_SyncActor(Actor* actor, const char* playerId, int isOwnedLocally));
-RECOMP_IMPORT("mm_network_sync", void NS_ExtendActorSynced(s16 actor_id, u32 size));
+RECOMP_IMPORT("mm_network_sync", u8 NS_RegisterMessageHandler(const char* messageId, u32 payloadSize, void* callback));
+RECOMP_IMPORT("mm_network_sync", u8 NS_EmitMessage(const char* messageId, void* data));
 
 RECOMP_IMPORT("ProxyMM_Notifications", void Notifications_Emit(const char* prefix, const char* msg, const char* suffix));
 RECOMP_IMPORT("ProxyMM_CustomActor", s16 CustomActor_Register(ActorProfile* profile));
@@ -28,6 +29,21 @@ RECOMP_IMPORT("ProxyMM_CustomActor", s16 CustomActor_Register(ActorProfile* prof
 // MARK: - Forward Declarations
 
 void remote_actors_update(PlayState* play);
+
+// MARK: - Emit / Receive Remote Events
+
+#define MSG_ITEM_USED "item_used"
+
+typedef struct { u32 dummy_data; } SpinAttackedMessage;
+
+void handle_item_used_message(void* data) {
+    SpinAttackedMessage* msg = (SpinAttackedMessage*)data;
+    Notifications_Emit(
+        "", // Prefix (Purple)
+        "Remote user used item", // Main Message (white)
+        "" // Suffix (Blue)
+    );
+}
 
 // MARK: - Custom Actors
 
@@ -44,6 +60,9 @@ void init_runtime() {
 
     NS_Init();
     ACTOR_REMOTE_PLAYER = CustomActor_Register(&RemotePlayer_InitVars);
+
+    // Register message handlers
+    NS_RegisterMessageHandler(MSG_ITEM_USED, sizeof(SpinAttackedMessage), handle_item_used_message);
 }
 
 RECOMP_CALLBACK("*", recomp_on_play_init)
@@ -98,6 +117,14 @@ RECOMP_HOOK("Player_Init")
 void OnPlayerInit(Actor* thisx, PlayState* play) {
     recomp_printf("Player initialized\n");
     NS_SyncActor(thisx, NULL, 1);
+}
+
+RECOMP_HOOK("Player_UseItem")
+void OnPlayer_UseItem(PlayState* play, Player* this, ItemId item) {
+    SpinAttackedMessage msg;
+    msg.dummy_data = 7;
+    recomp_printf("Player_UseItem called\n");
+    NS_EmitMessage(MSG_ITEM_USED, &msg);
 }
 
 // MARK: - Remote Player Actor Processing
