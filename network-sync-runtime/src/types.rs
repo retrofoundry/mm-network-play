@@ -10,7 +10,7 @@ pub struct ActorData {
     // Player Actor specific properties
     pub upperLimbRot: Vec3s,
     pub jointTable: [Vec3s; 24],
-    pub currentBoots: i8,
+    pub currentMask: i8,
     pub currentShield: i8,
 }
 
