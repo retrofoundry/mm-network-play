@@ -1,9 +1,8 @@
-#include <stdint.h>
-#include <string.h>
-
-#include "modding.h"
-#include "global.h"
+#include "message_system.h"
 #include "recomputils.h"
+#include "network_core.h"
+
+#include <string.h>
 
 // Message callback registry
 typedef struct {
@@ -19,16 +18,9 @@ typedef struct {
 static MessageCallback gMessageCallbacks[MAX_MESSAGE_CALLBACKS];
 static u32 gMessageCallbackCount = 0;
 
-// MARK: - Imports
+// MARK: - Message System Implementation
 
-RECOMP_IMPORT(".", u8 NetworkSyncEmitMessage(const char* messageId, u32 size, void* data));
-RECOMP_IMPORT(".", u32 NetworkSyncGetPendingMessageSize());
-RECOMP_IMPORT(".", u8 NetworkSyncGetMessage(void* buffer, u32 bufferSize, char* messageIdBuffer));
-
-// MARK: - APIs
-
-// Register a callback for a specific message type with its expected payload size
-RECOMP_EXPORT u8 NS_RegisterMessageHandler(const char* messageId, u32 payloadSize, void* callback) {
+u8 MessageSystemRegisterHandler(const char* messageId, u32 payloadSize, void* callback) {
     if (gMessageCallbackCount >= MAX_MESSAGE_CALLBACKS) {
         recomp_printf("Error: Maximum number of message handlers reached\n");
         return 1;
@@ -61,8 +53,7 @@ RECOMP_EXPORT u8 NS_RegisterMessageHandler(const char* messageId, u32 payloadSiz
     return 0;
 }
 
-// Send a message to all clients
-RECOMP_EXPORT u8 NS_EmitMessage(const char* messageId, void* data) {
+u8 MessageSystemEmit(const char* messageId, void* data) {
     // Find the registered size for this message type
     u32 size = 0;
     for (u32 i = 0; i < gMessageCallbackCount; i++) {
@@ -81,9 +72,7 @@ RECOMP_EXPORT u8 NS_EmitMessage(const char* messageId, void* data) {
     return NetworkSyncEmitMessage(messageId, size, data);
 }
 
-// MARK: - Message Processing
-
-void process_pending_updates() {
+void MessageSystemProcessPending() {
     while (true) {
         u32 messageSize = NetworkSyncGetPendingMessageSize();
         if (messageSize == 0) {
@@ -108,4 +97,4 @@ void process_pending_updates() {
         // Free the buffer
         recomp_free(buffer);
     }
-}
+} 
